@@ -44,3 +44,65 @@ function Invoke-Test {
     $ARMDataSources = Get-ARMDataSource
     $Results = $DataSources | Get-DataSourceInfo
 }
+
+function Remove-StuckJobs {
+    param (
+        $DPMDBName
+    )
+    Invoke-SQL -dataSource inf-scdpm201601 -database DPMDB_INF_SCDPM201601 -sqlCommand @"
+USE $DPMDBName
+
+BEGIN TRAN
+
+-- mark replica as invalid if there was some operation happening on that replica
+UPDATE tbl_PRM_LogicalREplica
+SET Validity = 1 -- Invalid
+WHERE OwnerTaskIdLock IS NOT NULL AND
+Validity <> 5 AND -- ProtectionStopped
+Validity <> 6 -- Inactive
+
+-- Release all the locks held
+UPDATE tbl_PRM_LogicalREplica
+SET OwnerTaskIdLock = null,
+Status=8
+
+if (select COUNT(name) from tbl_AM_Agent where Name like 'DPM RA v2%') > 0
+begin
+    exec sp_executesql N'UPDATE tbl_RM_ShadowCopy
+    SET ArchivetaskId = NULL,
+    RecoveryJobId = NULL'
+end
+
+UPDATE tbl_ARM_Datasource
+SET Status = 0,
+OwnerLockId = NULL
+DELETE tbl_RM_DatasourceServerlock
+DELETE tbl_RM_ShadowCopyLocks
+
+-- Set All running tasks and jobs to failed
+UPDATE tbl_TE_TaskTrail
+SET ExecutionState = 3,
+LastStateName = 'Failure',
+StoppedDateTime = GetUtcDate()
+WHERE ExecutionState NOT IN (2,3)
+
+UPDATE tbl_JM_JobTrail
+SET JobState= 'Failed',
+EndDateTime = GetUtcDate()
+WHERE jobstate= 'Execute' OR jobstate= 'Retire'
+
+-- unreserve resources held
+UPDATE tbl_MM_Global_Media
+SET ReservationLevel = 0,
+ReservationOwnerMMId = null
+
+UPDATE tbl_MM_Global_Drive
+SET ReservationLevel = 0,
+ReservationOwnerMMId = null
+
+UPDATE tbl_MM_Global_IEPortResource
+SET ReservationLevel = 0,
+ReservationOwnerMMId = null
+COMMIT TRAN
+"@ -ConvertFromDataRow
+}
