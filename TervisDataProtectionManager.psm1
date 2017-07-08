@@ -254,3 +254,28 @@ function Set-DPMServernameOnRemoteComputer {
     )
     Invoke-PsExec -ComputerName $Computername -CustomPsExecParameters "-s" -Command "`"C:\Program Files\Microsoft Data Protection Manager\DPM\bin\SetDpmServer.exe`" -DPMServerName $DPMServerName"
 }
+
+
+New-Alias -Name Get-DPMAgentDataSource -Value Get-DPMProductionServerDataSource
+New-Alias -Name Get-AgentDataSource -Value Get-DPMProductionServerDataSource
+New-Alias -Name Get-ProductionServerDataSource -Value Get-DPMProductionServerDataSource
+function Get-DPMProductionServerDataSource {
+    param (
+        $ProductionServerName,
+        $ComputerName,
+        [Switch]$Inquire
+    )
+
+    Invoke-Command -ComputerName $ComputerName -ScriptBlock {
+        $ProductionServer = Get-ProductionServer | 
+        where Name -EQ $Using:ProductionServerName
+
+        if (-not $ProductionServer) {
+            Throw "No production server with name $Using:ProductionServerName was found"
+        }
+
+        Get-Datasource -ProductionServer $ProductionServer -Inquire:$Using:Inquire
+    }
+}
+
+Export-ModuleMember -Function * -Alias * 
