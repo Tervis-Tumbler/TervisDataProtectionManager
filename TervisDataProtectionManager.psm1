@@ -237,12 +237,12 @@ function Invoke-AttachDPMProductionServer {
     [CmdletBinding()]
     param(
         [parameter(Mandatory)]$Name,
-        [parameter(Mandatory)]$DPMServerName
-    )
-    $SCDPMCredential = Get-PasswordstateCredential -PasswordID 4037 -AsPlainText
+        [parameter(Mandatory)]$DPMServerName,
+        $Credential = (Get-PasswordstateCredential -PasswordID 4037)
+    )    
     $AttachProductionServerScriptPath = 'C:\Program Files\Microsoft System Center 2016\DPM\DPM\bin\Attach-ProductionServer.ps1'
     
-    $Command = "& `"$AttachProductionServerScriptPath`" -DPMServerName $DPMServerName -PSName $Name -UserName $($SCDPMCredential.Username) -Password $($SCDPMCredential.Password) -Domain tervis.prv"
+    $Command = "& `"$AttachProductionServerScriptPath`" -DPMServerName $DPMServerName -PSName $Name -UserName $($Credential.Username) -Password $($Credential.GetNetworkCredential().Password) -Domain tervis.prv"
     Invoke-PsExec -ComputerName $DPMServerName -Command $Command -IsPSCommand -IsLongPSCommand -CustomPsExecParameters "-s"
 }
 
