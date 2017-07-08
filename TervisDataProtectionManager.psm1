@@ -106,3 +106,151 @@ ReservationOwnerMMId = null
 COMMIT TRAN
 "@ -ConvertFromDataRow
 }
+
+function Export-ProtectionGroups {
+$Groups = Get-ProtectionGroup
+$groups | Export-Clixml -Depth 3 -Path $home\protectiongroups.xml
+$groups | ConvertTo-Json | Out-File -Encoding ascii -NoNewline -FilePath $home\ProtectionGroups.json
+}
+
+function Import-ProtectionGroups {
+$groups = Import-Clixml -Path $home\protectiongroups.xml
+
+}
+
+function Get-DPMBinPath {
+    param (
+        $ComputerName
+    )
+    $DPMBinPathLocal = "C:\Program Files\Microsoft System Center 2016\DPM\DPM\bin"
+
+    if ($ComputerName) {
+        $DPMBinPathLocal | ConvertTo-RemotePath -ComputerName $ComputerName
+    } else {
+        $DPMBinPathLocal
+    }
+}
+
+function Import-DataProtectionManagerModule {
+    param (
+        $ComputerName,
+        $Prefix
+    )
+    $Session = New-PSSession -ComputerName $ComputerName
+    Invoke-Command -Session $Session -ScriptBlock { ipmo -force DataProtectionManager }
+
+    if ($Prefix) {
+        Import-module (Import-PSSession -Session $Session -Module DataProtectionManager -DisableNameChecking -AllowClobber) -Global -Prefix $Prefix
+    } else {
+        Import-module (Import-PSSession -Session $Session -Module DataProtectionManager -DisableNameChecking -AllowClobber) -Global
+    }
+}
+
+function New-TervisProtectionGroup {
+
+}
+
+function Move-DPMAgents {
+    param (
+        $ComputerName,
+        $OldComputerName
+    )
+
+    Import-DataProtectionManagerModule -ComputerName $OldComputerName -Prefix Old
+    Import-DataProtectionManagerModule -ComputerName $ComputerName
+
+    $AgentsOld = Get-OldProductionServer
+    $Agents = Get-ProductionServer
+
+    $AgentsToMove = Compare-Object -ReferenceObject $AgentsOld -DifferenceObject $Agents -Property Name | 
+    where SideIndicator -eq "<=" |
+    where Name -NE $OldComputerName |
+    Select -ExpandProperty Name
+
+    Set-DPMServernameOnRemoteComputer -Computername $AgentsToMove -DPMServerName $ComputerName
+
+    foreach ($Agent in $AgentsToMove) {
+        Invoke-AttachDPMProductionServer -DPMServerName $ComputerName -Name $Agent        
+    }
+
+    $ProductionServers = Get-ProductionServer
+    $ProductionServers | % { $_.GetDataSources() }
+
+    $OldProtectionGroup = Get-OldProtectionGroup -DPMServerName $OldComputerName
+    $ProtectionGroup = Get-ProtectionGroup -DPMServerName $ComputerName
+
+    #Compare-Object -ReferenceObject $OldProtectionGroup -DifferenceObject $ProtectionGroup -Property Name -IncludeEqual
+
+    $ProtectionGroupNamesToCreate = Compare-Object -ReferenceObject $OldProtectionGroup -DifferenceObject $ProtectionGroup -Property Name |
+    where SideIndicator -eq "<=" |
+    Select -ExpandProperty Name
+
+    $ProtectionGroupsToCreate = $OldProtectionGroup | where Name -In $ProtectionGroupNamesToCreate
+    Set-ProtectionGroup -ProtectionGroup $ProtectionGroupsToCreate[0]
+    
+    $pgroup = $ProtectionGroupsToCreate[0]
+    $pgroup.DPMServerName = "inf-scdpm201602.tervis.prv"
+    Set-ProtectionGroup -ProtectionGroup $pgroup
+
+    $NewPGroup = New-ProtectionGroup -DPMServerName $ComputerName -Name Stores-OrangeBeach
+
+    $ProtectionGroup = New-ProtectionGroup -DPMServerName $ComputerName -Name Stores-OrangeBeach
+
+    Add-DPMChildDatasource
+    Set-DPMProtectionType
+    Set-DPMDatasourceDefaultDiskAllocation
+    Set-DPMDatasourceDiskAllocation
+
+    
+}
+
+function Get-DPMStoreDatabaSourcesNotProtected {
+    $DataSources = Get-DPMDatasource
+    
+    $DataSources | 
+    where ObjectType -Match SQL |
+    where CurrentProtectionState -NE Protected |
+    where Name -NotIn "master","tempdb","model","msdb" |
+    where {$_.Computer -match "^[0-9]"} |
+    where SqlScratchSpace -NotMatch UPS
+}
+
+function Remove-ProductionServer {
+    param (
+        [Parameter(Mandatory)]$ComputerName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$Name
+    )
+    begin {
+        $DPMServer = Connect-DPMServer $ComputerName
+    }
+    process {
+        if ($DPMServer) {
+            $DPMServer.RemoveProductionServer($Name)
+        }
+    }
+    end {
+        $DPMServer.Dispose()
+    }
+}
+
+function Invoke-AttachDPMProductionServer {
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory)]$Name,
+        [parameter(Mandatory)]$DPMServerName
+    )
+    $SCDPMCredential = Get-PasswordstateCredential -PasswordID 4037 -AsPlainText
+    $AttachProductionServerScriptPath = 'C:\Program Files\Microsoft System Center 2016\DPM\DPM\bin\Attach-ProductionServer.ps1'
+    
+    $Command = "& `"$AttachProductionServerScriptPath`" -DPMServerName $DPMServerName -PSName $Name -UserName $($SCDPMCredential.Username) -Password $($SCDPMCredential.Password) -Domain tervis.prv"
+    Invoke-PsExec -ComputerName $DPMServerName -Command $Command -IsPSCommand -IsLongPSCommand -CustomPsExecParameters "-s"
+}
+
+function Set-DPMServernameOnRemoteComputer {
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory)]$Computername,
+        [parameter(Mandatory)]$DPMServerName
+    )
+    Invoke-PsExec -ComputerName $Computername -CustomPsExecParameters "-s" -Command "`"C:\Program Files\Microsoft Data Protection Manager\DPM\bin\SetDpmServer.exe`" -DPMServerName $DPMServerName"
+}
