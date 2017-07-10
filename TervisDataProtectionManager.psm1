@@ -258,6 +258,7 @@ function Set-DPMServernameOnRemoteComputer {
 New-Alias -Name Get-DPMAgentDataSource -Value Get-DPMProductionServerDataSource
 New-Alias -Name Get-AgentDataSource -Value Get-DPMProductionServerDataSource
 New-Alias -Name Get-ProductionServerDataSource -Value Get-DPMProductionServerDataSource
+
 function Get-DPMProductionServerDataSource {
     param (
         $Name,
@@ -276,5 +277,34 @@ function Get-DPMProductionServerDataSource {
         Get-Datasource -ProductionServer $ProductionServer -Inquire:$Using:Inquire
     }
 }
+
+function Create-DPMProtectionGroup
+{
+    ####https://blogs.technet.microsoft.com/dpm/2008/03/18/cli-script-create-protection-groups-for-disk-based-backups/####
+    param(
+        [Parameter(Mandatory)]$DPMServerName,
+        [Parameter(Mandatory)]$ProductionServerName,
+        [Parameter(Mandatory)]$DatasourceName,
+        $ChildDatasourceName,
+        [Parameter(Mandatory)]$ProtectionGroupName
+    )
+
+        $ProductionServer = Get-ProductionServer -DPMServerName $DPMServerName | where { ($_.machinename,$_.name) -contains $ProductionServerName }
+        $Datasource = Get-Datasource -ProductionServer $ProductionServer -Inquire | where { ($_.logicalpath,$_.name) -contains $DatasourceName }
+        $ChildDatasource = Get-ChildDatasource -ChildDatasource $Datasource -Inquire | where { ($_.logicalpath,$_.name) -contains $ChildDatasourceName }
+        $ProtectionGroup = New-ProtectionGroup -DPMServerName $DPMServerName -Name $ProtectionGroupName
+        Add-childDatasource -ProtectionGroup $ProtectionGroup -ChildDatasource $ChildDatasource
+        Set-ProtectionType -ProtectionGroup $ProtectionGroup -ShortTerm disk
+        Set-PolicyObjective -ProtectionGroup $ProtectionGroup -RetentionRangeInDays 21 -SynchronizationFrequency 15
+        $PolicySchedule = Get-PolicySchedule -ProtectionGroup $ProtectionGroup -ShortTerm| where { $_.JobType -eq “ShadowCopy” }
+        Set-PolicySchedule -ProtectionGroup $ProtectionGroup -Schedule $PolicySchedule -DaysOfWeek su,mo,tu,we,th,fr,sa -TimesOfDay 8:00,16:00,00:00
+        Get-DatasourceDiskAllocation -Datasource $Datasource -Calculatesize
+        Set-DatasourceDiskAllocation -Datasource $Datasource -ProtectionGroup $ProtectionGroup
+        Set-ReplicaCreationMethod -ProtectionGroup $ProtectionGroup -NOW
+        Set-protectiongroup $ProtectionGroup
+}
+ 
+
+ 
 
 Export-ModuleMember -Function * -Alias * 
