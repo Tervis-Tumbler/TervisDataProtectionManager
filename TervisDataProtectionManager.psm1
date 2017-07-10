@@ -150,19 +150,43 @@ function New-TervisProtectionGroup {
 
 }
 
-function Move-DPMAgents {
+function Compare-DPMProductionServers {
     param (
         $ComputerName,
-        $OldComputerName
+        $OldComputerName,
+        [Switch]$IncludeEqual
     )
-
     Import-DataProtectionManagerModule -ComputerName $OldComputerName -Prefix Old
     Import-DataProtectionManagerModule -ComputerName $ComputerName
 
     $AgentsOld = Get-OldProductionServer
     $Agents = Get-ProductionServer
 
-    $AgentsToMove = Compare-Object -ReferenceObject $AgentsOld -DifferenceObject $Agents -Property Name | 
+    Compare-Object -ReferenceObject $AgentsOld -DifferenceObject $Agents -Property Name -IncludeEqual:$IncludeEqual
+}
+
+function Compare-DPMProtectionGroups {
+    param (
+        $ComputerName,
+        $OldComputerName,
+        [Switch]$IncludeEqual
+    )
+    Import-DataProtectionManagerModule -ComputerName $OldComputerName -Prefix Old
+    Import-DataProtectionManagerModule -ComputerName $ComputerName
+
+    $OldProtectionGroup = Get-OldProtectionGroup -DPMServerName $OldComputerName
+    $ProtectionGroup = Get-ProtectionGroup -DPMServerName $ComputerName
+
+    Compare-Object -ReferenceObject $OldProtectionGroup -DifferenceObject $ProtectionGroup -Property Name -IncludeEqual:$IncludeEqual
+}
+
+function Move-DPMAgents {
+    param (
+        $ComputerName,
+        $OldComputerName
+    )
+
+    $AgentsToMove = Compare-DPMProductionServers -ComputerName $ComputerName -OldComputerName $ComputerName | 
     where SideIndicator -eq "<=" |
     where Name -NE $OldComputerName |
     Select -ExpandProperty Name
@@ -173,17 +197,14 @@ function Move-DPMAgents {
         Invoke-AttachDPMProductionServer -DPMServerName $ComputerName -Name $Agent        
     }
 
-    $ProductionServers = Get-ProductionServer
-    $ProductionServers | % { $_.GetDataSources() }
-
-    $OldProtectionGroup = Get-OldProtectionGroup -DPMServerName $OldComputerName
-    $ProtectionGroup = Get-ProtectionGroup -DPMServerName $ComputerName
-
-    #Compare-Object -ReferenceObject $OldProtectionGroup -DifferenceObject $ProtectionGroup -Property Name -IncludeEqual
-
-    $ProtectionGroupNamesToCreate = Compare-Object -ReferenceObject $OldProtectionGroup -DifferenceObject $ProtectionGroup -Property Name |
+    $ProtectionGroupNamesToCreate = Compare-DPMProtectionGroups -ComputerName $ComputerName -OldComputerName $OldComputerName |
     where SideIndicator -eq "<=" |
     Select -ExpandProperty Name
+
+    Import-DataProtectionManagerModule -ComputerName $OldComputerName -Prefix Old
+    Import-DataProtectionManagerModule -ComputerName $ComputerName
+
+    $OldProtectionGroup = Get-OldProtectionGroup -DPMServerName $OldComputerName
 
     $ProtectionGroupsToCreate = $OldProtectionGroup | where Name -In $ProtectionGroupNamesToCreate
     Set-ProtectionGroup -ProtectionGroup $ProtectionGroupsToCreate[0]
@@ -239,8 +260,8 @@ function Invoke-AttachDPMProductionServer {
         [parameter(Mandatory)]$Name,
         [parameter(Mandatory)]$DPMServerName,
         $Credential = (Get-PasswordstateCredential -PasswordID 4037)
-    )    
-    $AttachProductionServerScriptPath = 'C:\Program Files\Microsoft System Center 2016\DPM\DPM\bin\Attach-ProductionServer.ps1'
+    )
+    $AttachProductionServerScriptPath = "C:\Program Files\Microsoft System Center 2016\DPM\DPM\bin\Attach-ProductionServer.ps1"
     
     $Command = "& `"$AttachProductionServerScriptPath`" -DPMServerName $DPMServerName -PSName $Name -UserName $($Credential.Username) -Password $($Credential.GetNetworkCredential().Password) -Domain tervis.prv"
     Invoke-PsExec -ComputerName $DPMServerName -Command $Command -IsPSCommand -IsLongPSCommand -CustomPsExecParameters "-s"
@@ -253,6 +274,19 @@ function Set-DPMServernameOnRemoteComputer {
         [parameter(Mandatory)]$DPMServerName
     )
     Invoke-PsExec -ComputerName $Computername -CustomPsExecParameters "-s" -Command "`"C:\Program Files\Microsoft Data Protection Manager\DPM\bin\SetDpmServer.exe`" -DPMServerName $DPMServerName"
+}
+
+function Invoke-DPMConfigureSharePoint {
+    [CmdletBinding()]
+    param(
+        [parameter(Mandatory)]$Computername,
+        [Switch]$EnableSharePointProtection,
+        [Switch]$EnableSPSearchProtection,
+        [Switch]$ResolveAllSQLAliases,
+        $TempPath
+    )
+    $Command = "`"C:\Program Files\Microsoft Data Protection Manager\DPM\bin\ConfigureSharePoint.exe`""
+    Invoke-PsExec -ComputerName $Computername -CustomPsExecParameters "-s" -Command $Command
 }
 
 New-Alias -Name Get-DPMAgentDataSource -Value Get-DPMProductionServerDataSource
@@ -277,4 +311,4 @@ function Get-DPMProductionServerDataSource {
     }
 }
 
-Export-ModuleMember -Function * -Alias * 
+Export-ModuleMember -Function * -Alias *
