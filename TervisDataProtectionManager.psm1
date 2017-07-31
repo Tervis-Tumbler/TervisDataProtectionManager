@@ -47,9 +47,10 @@ function Invoke-Test {
 
 function Remove-StuckJobs {
     param (
+        $DPMServerName,
         $DPMDBName
     )
-    Invoke-SQL -dataSource inf-scdpm201601 -database DPMDB_INF_SCDPM201601 -sqlCommand @"
+    Invoke-SQL -dataSource $DPMServerName -database $DPMDBName -sqlCommand @"
 USE $DPMDBName
 
 BEGIN TRAN
@@ -312,8 +313,7 @@ function Get-DPMProductionServerDataSource {
     }
 }
 
-<<<<<<< HEAD
-function Create-DPMProtectionGroup
+function New-TervisDPMProtectionGroup
 {
     ####https://blogs.technet.microsoft.com/dpm/2008/03/18/cli-script-create-protection-groups-for-disk-based-backups/####
     param(
@@ -339,10 +339,358 @@ function Create-DPMProtectionGroup
         Set-protectiongroup $ProtectionGroup
 }
  
+function Set-TervisDPMProtectionGroupSchedule
+{
+    ####https://blogs.technet.microsoft.com/dpm/2008/03/18/cli-script-create-protection-groups-for-disk-based-backups/####
+    param(
+        [Parameter(Mandatory)]$DPMServerName,
+        [Parameter(Mandatory)]$ProductionServerName,
+        [Parameter(Mandatory)]$DatasourceName,
+        $ChildDatasourceName,
+        [Parameter(Mandatory)]$ProtectionGroupName
+    )
 
+        $ProductionServer = Get-ProductionServer -DPMServerName $DPMServerName | where { ($_.machinename,$_.name) -contains $ProductionServerName }
+        $Datasource = Get-Datasource -ProductionServer $ProductionServer -Inquire | where { ($_.logicalpath,$_.name) -contains $DatasourceName }
+        $ChildDatasource = Get-ChildDatasource -ChildDatasource $Datasource -Inquire | where { ($_.logicalpath,$_.name) -contains $ChildDatasourceName }
+        $ProtectionGroup = New-ProtectionGroup -DPMServerName $DPMServerName -Name $ProtectionGroupName
+        Add-childDatasource -ProtectionGroup $ProtectionGroup -ChildDatasource $ChildDatasource
+        Set-ProtectionType -ProtectionGroup $ProtectionGroup -ShortTerm disk
+        Set-PolicyObjective -ProtectionGroup $ProtectionGroup -RetentionRangeInDays 21 -SynchronizationFrequency 15
+        $PolicySchedule = Get-PolicySchedule -ProtectionGroup $ProtectionGroup -ShortTerm| where { $_.JobType -eq “ShadowCopy” }
+        Set-PolicySchedule -ProtectionGroup $ProtectionGroup -Schedule $PolicySchedule -DaysOfWeek su,mo,tu,we,th,fr,sa -TimesOfDay 8:00,16:00,00:00
+        Get-DatasourceDiskAllocation -Datasource $Datasource -Calculatesize
+        Set-DatasourceDiskAllocation -Datasource $Datasource -ProtectionGroup $ProtectionGroup
+        Set-ReplicaCreationMethod -ProtectionGroup $ProtectionGroup -NOW
+        Set-protectiongroup $ProtectionGroup
+
+        $backofficecomputers = Get-BackOfficeComputers
+
+}
+
+$backofficecomputers = Get-BackOfficeComputers
+
+function New-PSCustomObjectDefinition {
+    param (
+        [parameter(Mandatory)]$IndexObjects,
+        [parameter(Mandatory)]$FieldList
+    )
+    Foreach ($IndexObject in $IndexObjects)  {
+@"
+        [PSCustomObject][Ordered] @{
+            Name = "$IndexObject"
+            TimeZoneSchedule = ""
+            OffsetinMinutes = 
+            DPMServerName = ""
+        },
+"@
+    }
+}
+
+$DPMStoreProtectionGroupDefinitions = [PSCustomObject][Ordered] @{
+        Name = "1010OSBO3-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "1050PCBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3014SABO1-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3002CHBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "1060KWBO-PC2"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3029PFBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3041ORBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3007FMBO4-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "2010MBBO3-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3015MABO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3026ANBO3-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3001GBBO2-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "1040FMBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "1030VGBO1-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+
+
+    [PSCustomObject][Ordered] @{
+        Name = "3045COBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3036VBBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3020SDBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3048INBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3034DNBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "HAMBO-VM"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3047TPBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3049SPBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3028AVBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3038WBBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3039SEBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3046CNBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3042NOBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3004CGBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3024NSBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3022MMBO-PC2"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3044FWBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3008OBBO2-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3043BOBO1-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3023MYBO1-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3033NPBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3035SABO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3050KCBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3040SABO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3025AUBO3-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3032NHBO-PCNEW"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3030JVBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "1010OSMGR02-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3052ABO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3016BRBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3005SVBO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3018LABO-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "1010OSBO2-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "3003BRBO2-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "1020PBBO2-PC"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "INF-DONTESTBO"
+        TimeZoneSchedule = ""
+        OffsetinMinutes = 
+        DPMServerName = ""
+    }
  
 
 Export-ModuleMember -Function * -Alias * 
-=======
 Export-ModuleMember -Function * -Alias *
->>>>>>> 98688e1f9f7f23819df01207d8ba156349670f3a
+
