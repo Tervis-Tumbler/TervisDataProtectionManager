@@ -264,7 +264,7 @@ function Invoke-AttachDPMProductionServer {
     )
     $AttachProductionServerScriptPath = "C:\Program Files\Microsoft System Center 2016\DPM\DPM\bin\Attach-ProductionServer.ps1"
     
-    $Command = "& `"$AttachProductionServerScriptPath`" -DPMServerName $DPMServerName -PSName $Name -UserName $($Credential.Username) -Password $($Credential.GetNetworkCredential().Password) -Domain tervis.prv"
+    $Command = "& `"$AttachProductionServerScriptPath`" -DPMServerName $DPMServerName -PSName $Name -UserName $(($Credential.Username -split("\\"))[1]) -Password $($Credential.GetNetworkCredential().Password) -Domain tervis.prv"
     Invoke-PsExec -ComputerName $DPMServerName -Command $Command -IsPSCommand -IsLongPSCommand -CustomPsExecParameters "-s"
 }
 
@@ -344,31 +344,15 @@ function Set-TervisDPMProtectionGroupSchedule
     ####https://blogs.technet.microsoft.com/dpm/2008/03/18/cli-script-create-protection-groups-for-disk-based-backups/####
     param(
         [Parameter(Mandatory)]$DPMServerName,
-        [Parameter(Mandatory)]$ProductionServerName,
-        [Parameter(Mandatory)]$DatasourceName,
-        $ChildDatasourceName,
-        [Parameter(Mandatory)]$ProtectionGroupName
+        [Parameter(Mandatory)]$ProtectionGroup,
+        [Parameter(Mandatory)]$DPMProtectionGroupSchedulePolicy
     )
-
-        $ProductionServer = Get-ProductionServer -DPMServerName $DPMServerName | where { ($_.machinename,$_.name) -contains $ProductionServerName }
-        $Datasource = Get-Datasource -ProductionServer $ProductionServer -Inquire | where { ($_.logicalpath,$_.name) -contains $DatasourceName }
-        $ChildDatasource = Get-ChildDatasource -ChildDatasource $Datasource -Inquire | where { ($_.logicalpath,$_.name) -contains $ChildDatasourceName }
-        $ProtectionGroup = New-ProtectionGroup -DPMServerName $DPMServerName -Name $ProtectionGroupName
-        Add-childDatasource -ProtectionGroup $ProtectionGroup -ChildDatasource $ChildDatasource
-        Set-ProtectionType -ProtectionGroup $ProtectionGroup -ShortTerm disk
-        Set-PolicyObjective -ProtectionGroup $ProtectionGroup -RetentionRangeInDays 21 -SynchronizationFrequency 15
-        $PolicySchedule = Get-PolicySchedule -ProtectionGroup $ProtectionGroup -ShortTerm| where { $_.JobType -eq “ShadowCopy” }
-        Set-PolicySchedule -ProtectionGroup $ProtectionGroup -Schedule $PolicySchedule -DaysOfWeek su,mo,tu,we,th,fr,sa -TimesOfDay 8:00,16:00,00:00
-        Get-DatasourceDiskAllocation -Datasource $Datasource -Calculatesize
-        Set-DatasourceDiskAllocation -Datasource $Datasource -ProtectionGroup $ProtectionGroup
-        Set-ReplicaCreationMethod -ProtectionGroup $ProtectionGroup -NOW
+        $PolicyScheduletoSet = Get-DPMProtectionGroupSchedulePolicy -DPMProtectiongroupSchedulePolicy $DPMProtectionGroupSchedulePolicy
+        Set-PolicyObjective -ProtectionGroup $ProtectionGroup -RetentionRangeInDays $PolicyScheduletoSet.RetentionRangeInDays -SynchronizationFrequency $PolicyScheduletoSet.SynchronizationFrequencyinMinutes
+        $PolicySchedule = (Get-PolicySchedule -ProtectionGroup $ProtectionGroup -ShortTerm)[1] #| where { $_.JobType -eq “ShadowCopy” }
+        Set-PolicySchedule -ProtectionGroup $ProtectionGroup -Schedule $PolicySchedule -DaysOfWeek $($PolicyScheduletoSet.DaysOfWeek) -TimesOfDay $PolicyScheduletoSet.TimesofDay
         Set-protectiongroup $ProtectionGroup
-
-        $backofficecomputers = Get-BackOfficeComputers
-
 }
-
-$backofficecomputers = Get-BackOfficeComputers
 
 function New-PSCustomObjectDefinition {
     param (
@@ -381,316 +365,374 @@ function New-PSCustomObjectDefinition {
             Name = "$IndexObject"
             TimeZoneSchedule = ""
             OffsetinMinutes = 
-            DPMServerName = ""
+            DPMServerName = "inf-scdpmsql01 "
         },
 "@
     }
 }
 
+function Get-DPMProtectionGroupSchedulePolicy{
+    param(
+        [String]$DPMProtectiongroupSchedulePolicy
+    )
+    if($DPMProtectiongroupSchedulePolicy){
+        $DPMProtectionGroupSchedulePolicies| Where name -EQ $DPMProtectiongroupSchedulePolicy
+    }
+    else{$DPMProtectionGroupSchedulePolicies}
+}
+
+function Get-DPMStoreProtectionGroupDefinition{
+    param(
+        [String]$Name
+    )
+    if($Name){
+        $DPMStoreProtectionGroupDefinitions | Where name -EQ $Name
+    }
+    else{$DPMStoreProtectionGroupDefinitions}
+}
+
+
+$DPMProtectionGroupSchedulePolicies = [PSCustomObject][Ordered] @{
+        Name = "Stores-21Day-60Min-10pm"
+        RetentionRangeInDays = "21"
+        SynchronizationFrequencyinMinutes = "15"
+        TimesofDay = "22:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "Stores-21day-90Min-12pm"
+        RetentionRangeInDays = "21"
+        SynchronizationFrequencyinMinutes = "90"
+        TimesofDay = "00:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "21day-30Min-7am_3pm_11pm"
+        RetentionRangeInDays = "21"
+        SynchronizationFrequencyinMinutes = "30"
+        TimesofDay = "07:00,15:00,23:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+    }
+
+function Get-ProtectionGroupofDataSource {
+    param (
+        [parameter(Mandatory)]$DPMServername = "inf-scdpm201602.tervis.prv",
+        [parameter(Mandatory)]$ProductionServer = "1010osbo3-pc",
+        [parameter(Mandatory)]$DataSourceName = "ospreystoredb",
+        [switch]$Modifiable
+    )
+
+    if ($Modifiable){
+        Get-DPMDatasource | where {$_.Computer -eq $ProductionServer -and $_.Name -eq $DataSourceName} | select ProtectionGroup -ExpandProperty ProtectionGroup | Get-ModifiableProtectionGroup
+    }
+    else{
+        Get-DPMDatasource | where {$_.Computer -eq $ProductionServer -and $_.Name -eq $DataSourceName} | select ProtectionGroup -ExpandProperty ProtectionGroup
+    }
+
+}
+
 $DPMStoreProtectionGroupDefinitions = [PSCustomObject][Ordered] @{
         Name = "1010OSBO3-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01"
     },
     [PSCustomObject][Ordered] @{
         Name = "1050PCBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01"
     },
     [PSCustomObject][Ordered] @{
         Name = "3014SABO1-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01"
     },
     [PSCustomObject][Ordered] @{
         Name = "3002CHBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01"
     },
     [PSCustomObject][Ordered] @{
         Name = "1060KWBO-PC2"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3029PFBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3041ORBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3007FMBO4-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "2010MBBO3-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3015MABO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3026ANBO3-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3001GBBO2-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "1040FMBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "1030VGBO1-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01 "
     },
-
-
     [PSCustomObject][Ordered] @{
         Name = "3045COBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3036VBBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3020SDBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3048INBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3034DNBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "HAMBO-VM"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3047TPBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3049SPBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3028AVBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3038WBBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3039SEBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3046CNBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3042NOBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3004CGBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3024NSBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3022MMBO-PC2"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3044FWBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3008OBBO2-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3043BOBO1-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3023MYBO1-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3033NPBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3035SABO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3050KCBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3040SABO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3025AUBO3-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3032NHBO-PCNEW"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3030JVBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "1010OSMGR02-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3052ABO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3016BRBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3005SVBO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3018LABO-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "1010OSBO2-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "3003BRBO2-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "1020PBBO2-PC"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     },
     [PSCustomObject][Ordered] @{
         Name = "INF-DONTESTBO"
-        TimeZoneSchedule = ""
-        OffsetinMinutes = 
-        DPMServerName = ""
+        ProtectionGroupSchedule= "Stores-21day-90Min-12pm"
+        OffsetinMinutes = "30"
+        DPMServerName = "inf-scdpmsql01 "
     }
  
 
-Export-ModuleMember -Function * -Alias * 
-Export-ModuleMember -Function * -Alias *
+#Export-ModuleMember -Function * -Alias * 
+#Export-ModuleMember -Function * -Alias *
 
