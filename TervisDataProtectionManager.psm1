@@ -314,11 +314,10 @@ function Get-DPMProductionServerDataSource {
 }
 
 function Move-TervisStoreDatabaseToNewDPMServer {
-    
-    $ComputerName = "1010osbo3-pc"
-    
+    param([parameter(Mandatory)]$Computername)
+
+    $StoreNodeDefinition = Get-DPMStoreProtectionGroupDefinition -Name $ComputerName
     $PSSession = new-pssession -ComputerName $StoreNodeDefinition.DPMServerName
-    $StoreNodeDefinition= Get-DPMStoreProtectionGroupDefinition -Name $ComputerName
     $StoreInformation = Get-TervisStoreDatabaseInformation -Computername $($StoreNodeDefinition.Name)
     $StoreName = $StoreInformation.StoreName
     $DataSourceName = $StoreInformation.DatabaseName
@@ -329,16 +328,12 @@ function Move-TervisStoreDatabaseToNewDPMServer {
     Set-DPMServernameOnRemoteComputer -Computername $StoreNodeDefinition.Name -DPMServerName $StoreNodeDefinition.DPMServerName
     Invoke-AttachDPMProductionServer -Name $StoreNodeDefinition.Name -DPMServerName $StoreNodeDefinition.DPMServerName
     
-    
-    Set-DPMServernameOnRemoteComputer -Computername $($StoreNodeDefinition.name) -DPMServerName $($StoreNodeDefinition.DPMServerName)
-    Invoke-AttachDPMProductionServer -DPMServerName $($StoreNodeDefinition.DPMServerName) -Name $($StoreNodeDefinition.Name)
-    
     $DPMProtectionGroupPolicyToApply = Get-DPMProtectionGroupSchedulePolicyDefinition -DPMProtectiongroupSchedulePolicy $StoreNodeDefinition.ProtectionGroupSchedule
     
     invoke-command -Session $PSSession -Verbose -ScriptBlock {
         $PolicyScheduletoSet = $($using:DPMProtectionGroupPolicyToApply)
     
-        $ProductionServer = Get-ProductionServer | where servername -eq $($using:StoretoAdd.Name)
+        $ProductionServer = Get-ProductionServer | where servername -eq $($using:StoreNodeDefinition.Name)
         $Datasource = Get-Datasource -ProductionServer $ProductionServer -Inquire | where { ($_.logicalpath,$_.name) -contains $using:DatasourceName }
         $ProtectionGroup = New-ProtectionGroup -Name $using:ProtectionGroupName
         Add-childDatasource -ProtectionGroup $ProtectionGroup -ChildDatasource $Datasource
