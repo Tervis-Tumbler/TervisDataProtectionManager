@@ -326,20 +326,68 @@ function Move-TervisStoreDatabaseToNewDPMServer {
     $ProtectionGroupName = "Stores-$StoreName" -replace " ","_"
     
     Remove-DPMDataSourceFromProtectionGroup -Computername $Computername -DatasourceName $DataSourceName -DPMServerName $OldDPMServer
-        
-    Connect-DPMServer -DPMServerName $StoreNodeDefinition.DPMServerName
     Set-DPMServernameOnRemoteComputer -Computername $StoreNodeDefinition.Name -DPMServerName $StoreNodeDefinition.DPMServerName
     Invoke-AttachDPMProductionServer -Name $StoreNodeDefinition.Name -DPMServerName $StoreNodeDefinition.DPMServerName
+    Invoke-ProtectDPMDataSource -DPMServerName $StoreNodeDefinition.DPMServerName `
+        -ProductionServerName $Computername `
+        -DatasourceName $DataSourceName `
+        -ProtectionGroupName $ProtectionGroupName `
+        -DPMProtectionGroupSchedulePolicy $StoreNodeDefinition.ProtectionGroupSchedule `
+        -EnableCompression
+            
+#    Connect-DPMServer -DPMServerName $StoreNodeDefinition.DPMServerName
+#    Set-DPMServernameOnRemoteComputer -Computername $StoreNodeDefinition.Name -DPMServerName $StoreNodeDefinition.DPMServerName
+#    Invoke-AttachDPMProductionServer -Name $StoreNodeDefinition.Name -DPMServerName $StoreNodeDefinition.DPMServerName
+#    $ProductionServer = Get-ProductionServer | where servername -eq $($StoreNodeDefinition.Name)
+#    $Datasource = Get-Datasource -ProductionServer $ProductionServer -Inquire | where { ($_.logicalpath,$_.name) -contains $DatasourceName }
+#    $ProtectionGroup = New-ProtectionGroup -Name $ProtectionGroupName
+#    Add-childDatasource -ProtectionGroup $ProtectionGroup -ChildDatasource $Datasource
+#    Set-ProtectionType -ProtectionGroup $ProtectionGroup -ShortTerm disk
+#    Set-TervisDPMProtectionGroupSchedule -ProtectionGroup $ProtectionGroup -DPMProtectionGroupSchedulePolicy $StoreNodeDefinition.ProtectionGroupSchedule
+#    Get-DatasourceDiskAllocation -Datasource $Datasource
+#    Set-DatasourceDiskAllocation -Datasource $Datasource -ProtectionGroup $ProtectionGroup
+#    Set-ReplicaCreationMethod -ProtectionGroup $ProtectionGroup -NOW
+#    Set-DPMPerformanceOptimization -ProtectionGroup $ProtectionGroup -EnableCompression
+#    Set-protectiongroup $ProtectionGroup
+#    Disconnect-DPMServer -DPMServerName $StoreNodeDefinition.DPMServerName
+}
+
+function Invoke-ProtectDPMDataSource {
+   param(
+        [Parameter(Mandatory)]$DPMServerName,
+        [Parameter(Mandatory)]$ProductionServerName,
+        [Parameter(Mandatory)]$DatasourceName,
+        $ChildDatasourceName,
+        [Parameter(Mandatory)]$ProtectionGroupName,
+        [Parameter(Mandatory)]$DPMProtectionGroupSchedulePolicy,
+        [switch]$EnableCompression
+    )
+    Connect-DPMServer -DPMServerName $StoreNodeDefinition.DPMServerName
+    if( -not ($ProtectionGroup = (Get-ProtectionGroup | where name -eq $ProtectionGroupName))){
+        $ProtectionGroup = New-ProtectionGroup -Name $ProtectionGroupName
+    }
     $ProductionServer = Get-ProductionServer | where servername -eq $($StoreNodeDefinition.Name)
     $Datasource = Get-Datasource -ProductionServer $ProductionServer -Inquire | where { ($_.logicalpath,$_.name) -contains $DatasourceName }
-    $ProtectionGroup = New-ProtectionGroup -Name $ProtectionGroupName
-    Add-childDatasource -ProtectionGroup $ProtectionGroup -ChildDatasource $Datasource
+    if($ChildDatasourceName){
+        $ChildDatasource = Get-ChildDatasource -ChildDatasource $Datasource | where Name eq $ChildDatasourceName
+        Add-childDatasource -ProtectionGroup $ProtectionGroup -ChildDatasource $ChildDatasource
+    }
+    else {
+        Add-childDatasource -ProtectionGroup $ProtectionGroup -ChildDatasource $Datasource
+    }
     Set-ProtectionType -ProtectionGroup $ProtectionGroup -ShortTerm disk
-    Set-TervisDPMProtectionGroupSchedule -ProtectionGroup $ProtectionGroup -DPMProtectionGroupSchedulePolicy $StoreNodeDefinition.ProtectionGroupSchedule
-    Get-DatasourceDiskAllocation -Datasource $Datasource
+    Set-TervisDPMProtectionGroupSchedule -ProtectionGroup $ProtectionGroup -DPMProtectionGroupSchedulePolicy $DPMProtectionGroupSchedulePolicy
+    if ($Datasource.ObjectType -eq "Volume"){
+        Get-DatasourceDiskAllocation -Datasource $Datasource -CalculateSize
+    }
+    else {
+        Get-DatasourceDiskAllocation -Datasource $Datasource
+    }
     Set-DatasourceDiskAllocation -Datasource $Datasource -ProtectionGroup $ProtectionGroup
     Set-ReplicaCreationMethod -ProtectionGroup $ProtectionGroup -NOW
-    Set-DPMPerformanceOptimization -ProtectionGroup $ProtectionGroup -EnableCompression
+    if ($EnableCompression){
+        Set-DPMPerformanceOptimization -ProtectionGroup $ProtectionGroup -EnableCompression
+    }
     Set-protectiongroup $ProtectionGroup
     Disconnect-DPMServer -DPMServerName $StoreNodeDefinition.DPMServerName
 }
@@ -784,34 +832,3 @@ $DPMStoreProtectionGroupDefinitions = [PSCustomObject][Ordered] @{
 #Export-ModuleMember -Function * -Alias * 
 #Export-ModuleMember -Function * -Alias *
 
-#https://exchange12rocks.org/2014/02/26/how-to-connect-to-dpm-sql-database-dpmdb/
-function Set-DPMSQLServerNameRegistryKeys {
-    param (
-        [Parameter(Mandatory)]$ComputerName,
-        [Parameter(Mandatory)]$OldComputerName
-    )
-    $PropertiesToUpdate = "ConnectionString","GlobalDbConnectionString","SqlServer","GlobalSqlServer","ReportingServer"
-    $DBRegistryKeyPath = "HKLM:SOFTWARE\Microsoft\Microsoft Data Protection Manager\DB"
-
-    foreach ($PropertyName in $PropertiesToUpdate) {
-        Invoke-ReplaceStringInRegistryKeyProperty -RegistryKeyPath $DBRegistryKeyPath -PropertyName $PropertyName -OldString $OldComputerName -String $ComputerName -ComputerName $ComputerName
-    }        
-}    
-
-
-function Invoke-ReplaceStringInRegistryKeyProperty {
-    param (
-        [Parameter(Mandatory)]$ComputerName,
-        [Parameter(Mandatory)]$RegistryKeyPath,
-        [Parameter(Mandatory)]$PropertyName,
-        [Parameter(Mandatory)]$OldString,
-        [Parameter(Mandatory)]$String
-    )
-    process {
-        Invoke-Command -ComputerName $ComputerName -ScriptBlock {  
-            $RegistryKey = Get-ItemProperty -Path $Using:RegistryKeyPath
-            $ValueWithStringReplaced = $RegistryKey.$Using:PropertyName -replace $Using:OldString, $Using:String
-            Set-ItemProperty -Path $Using:RegistryKeyPath -Name $Using:PropertyName -Value $ValueWithStringReplaced
-        }
-    }
-}
