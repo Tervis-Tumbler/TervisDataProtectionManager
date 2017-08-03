@@ -314,41 +314,34 @@ function Get-DPMProductionServerDataSource {
 }
 
 function Move-TervisStoreDatabaseToNewDPMServer {
-    param([parameter(Mandatory)]$Computername)
+    param(
+        [parameter(Mandatory)]$Computername,
+        [parameter(Mandatory)]$OldDPMServer
+    )
 
     $StoreNodeDefinition = Get-DPMStoreProtectionGroupDefinition -Name $ComputerName
-    $PSSession = new-pssession -ComputerName $StoreNodeDefinition.DPMServerName
     $StoreInformation = Get-TervisStoreDatabaseInformation -Computername $($StoreNodeDefinition.Name)
     $StoreName = $StoreInformation.StoreName
     $DataSourceName = $StoreInformation.DatabaseName
     $ProtectionGroupName = "Stores-$StoreName" -replace " ","_"
     
-    
-    
+    Remove-DPMDataSourceFromProtectionGroup -Computername $Computername -DatasourceName $DataSourceName -DPMServerName $OldDPMServer
+        
+    Connect-DPMServer -DPMServerName $StoreNodeDefinition.DPMServerName
     Set-DPMServernameOnRemoteComputer -Computername $StoreNodeDefinition.Name -DPMServerName $StoreNodeDefinition.DPMServerName
     Invoke-AttachDPMProductionServer -Name $StoreNodeDefinition.Name -DPMServerName $StoreNodeDefinition.DPMServerName
-    
-    $DPMProtectionGroupPolicyToApply = Get-DPMProtectionGroupSchedulePolicyDefinition -DPMProtectiongroupSchedulePolicy $StoreNodeDefinition.ProtectionGroupSchedule
-    
-    invoke-command -Session $PSSession -Verbose -ScriptBlock {
-        $PolicyScheduletoSet = $($using:DPMProtectionGroupPolicyToApply)
-    
-        $ProductionServer = Get-ProductionServer | where servername -eq $($using:StoreNodeDefinition.Name)
-        $Datasource = Get-Datasource -ProductionServer $ProductionServer -Inquire | where { ($_.logicalpath,$_.name) -contains $using:DatasourceName }
-        $ProtectionGroup = New-ProtectionGroup -Name $using:ProtectionGroupName
-        Add-childDatasource -ProtectionGroup $ProtectionGroup -ChildDatasource $Datasource
-        Set-ProtectionType -ProtectionGroup $ProtectionGroup -ShortTerm disk
-        
-        Set-PolicyObjective -ProtectionGroup $ProtectionGroup -RetentionRangeInDays $($PolicyScheduletoSet.RetentionRangeInDays) -SynchronizationFrequency $($PolicyScheduletoSet.SynchronizationFrequencyinMinutes)
-        $PolicySchedule = (Get-PolicySchedule -ProtectionGroup $ProtectionGroup -ShortTerm)[1] #| where { $_.JobType -eq “ShadowCopy” }
-        Set-PolicySchedule -ProtectionGroup $ProtectionGroup -Schedule $PolicySchedule -DaysOfWeek $($PolicyScheduletoSet.DaysOfWeek) -TimesOfDay $($PolicyScheduletoSet.TimesofDay)
-    
-        Get-DatasourceDiskAllocation -Datasource $Datasource
-        Set-DatasourceDiskAllocation -Datasource $Datasource -ProtectionGroup $ProtectionGroup
-        Set-ReplicaCreationMethod -ProtectionGroup $ProtectionGroup -NOW
-        Set-protectiongroup $ProtectionGroup
-    
-    }
+    $ProductionServer = Get-ProductionServer | where servername -eq $($StoreNodeDefinition.Name)
+    $Datasource = Get-Datasource -ProductionServer $ProductionServer -Inquire | where { ($_.logicalpath,$_.name) -contains $DatasourceName }
+    $ProtectionGroup = New-ProtectionGroup -Name $ProtectionGroupName
+    Add-childDatasource -ProtectionGroup $ProtectionGroup -ChildDatasource $Datasource
+    Set-ProtectionType -ProtectionGroup $ProtectionGroup -ShortTerm disk
+    Set-TervisDPMProtectionGroupSchedule -ProtectionGroup $ProtectionGroup -DPMProtectionGroupSchedulePolicy $StoreNodeDefinition.ProtectionGroupSchedule
+    Get-DatasourceDiskAllocation -Datasource $Datasource
+    Set-DatasourceDiskAllocation -Datasource $Datasource -ProtectionGroup $ProtectionGroup
+    Set-ReplicaCreationMethod -ProtectionGroup $ProtectionGroup -NOW
+    Set-DPMPerformanceOptimization -ProtectionGroup $ProtectionGroup -EnableCompression
+    Set-protectiongroup $ProtectionGroup
+    Disconnect-DPMServer -DPMServerName $StoreNodeDefinition.DPMServerName
 }
 
 function New-TervisDPMProtectionGroup
@@ -384,7 +377,6 @@ function Set-TervisDPMProtectionGroupSchedule
 {
     ####https://blogs.technet.microsoft.com/dpm/2008/03/18/cli-script-create-protection-groups-for-disk-based-backups/####
     param(
-        [Parameter(Mandatory)]$DPMServerName,
         [Parameter(Mandatory)]$ProtectionGroup,
         [Parameter(Mandatory)]$DPMProtectionGroupSchedulePolicy
     )
@@ -392,7 +384,6 @@ function Set-TervisDPMProtectionGroupSchedule
         Set-PolicyObjective -ProtectionGroup $ProtectionGroup -RetentionRangeInDays $PolicyScheduletoSet.RetentionRangeInDays -SynchronizationFrequency $PolicyScheduletoSet.SynchronizationFrequencyinMinutes
         $PolicySchedule = (Get-PolicySchedule -ProtectionGroup $ProtectionGroup -ShortTerm)[1] #| where { $_.JobType -eq “ShadowCopy” }
         Set-PolicySchedule -ProtectionGroup $ProtectionGroup -Schedule $PolicySchedule -DaysOfWeek $($PolicyScheduletoSet.DaysOfWeek) -TimesOfDay $PolicyScheduletoSet.TimesofDay
-        Set-protectiongroup $ProtectionGroup
 }
 
 function New-PSCustomObjectDefinition {
@@ -432,6 +423,23 @@ function Get-DPMStoreProtectionGroupDefinition{
     else{$DPMStoreProtectionGroupDefinitions}
 }
 
+function Remove-DPMDataSourceFromProtectionGroup {
+    param(
+        [parameter(Mandatory)]$Computername,
+        [parameter(Mandatory)]$DatasourceName,
+        $DPMServerName
+    )
+    if($DPMServerName){
+        Connect-DPMServer -DPMServerName $OldDPMServer
+    }
+    $ProtectionGroup = Get-ProtectionGroupofDataSource -ProductionServer $Computername -DataSourceName $datasourcename -Modifiable
+    $datasource = Get-DPMDatasource -ProtectionGroup $ProtectionGroup | where name -eq $DataSourceName
+    Remove-DPMChildDatasource -ProtectionGroup $ProtectionGroup -ChildDatasource $Datasource -KeepDiskData
+    Set-protectiongroup $ProtectionGroup
+    if($DPMServerName){
+        Disconnect-DPMServer -DPMServerName $OldDPMServer
+    }
+}
 
 $DPMProtectionGroupSchedulePolicies = [PSCustomObject][Ordered] @{
         Name = "Stores-21Day-60Min-10pm"
@@ -457,14 +465,13 @@ $DPMProtectionGroupSchedulePolicies = [PSCustomObject][Ordered] @{
 
 function Get-ProtectionGroupofDataSource {
     param (
-        [parameter(Mandatory)]$DPMServername = "inf-scdpm201602.tervis.prv",
-        [parameter(Mandatory)]$ProductionServer = "1010osbo3-pc",
-        [parameter(Mandatory)]$DataSourceName = "ospreystoredb",
+        [parameter(Mandatory)]$ProductionServerName,
+        [parameter(Mandatory)]$DataSourceNameName,
         [switch]$Modifiable
     )
 
     if ($Modifiable){
-        Get-DPMDatasource | where {$_.Computer -eq $ProductionServer -and $_.Name -eq $DataSourceName} | select ProtectionGroup -ExpandProperty ProtectionGroup | Get-ModifiableProtectionGroup
+        Get-DPMDatasource | where {$_.Computer -eq $ProductionServerName -and $_.Name -eq $DataSourceNameName} | select ProtectionGroup -ExpandProperty ProtectionGroup | Get-ModifiableProtectionGroup
     }
     else{
         Get-DPMDatasource | where {$_.Computer -eq $ProductionServer -and $_.Name -eq $DataSourceName} | select ProtectionGroup -ExpandProperty ProtectionGroup
