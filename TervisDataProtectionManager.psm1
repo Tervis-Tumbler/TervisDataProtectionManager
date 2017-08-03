@@ -478,14 +478,14 @@ function Remove-DPMDataSourceFromProtectionGroup {
         $DPMServerName
     )
     if($DPMServerName){
-        Connect-DPMServer -DPMServerName $OldDPMServer
+        Connect-DPMServer -DPMServerName $DPMServerName
     }
     $ProtectionGroup = Get-ProtectionGroupofDataSource -ProductionServer $Computername -DataSourceName $datasourcename -Modifiable
     $datasource = Get-DPMDatasource -ProtectionGroup $ProtectionGroup | where name -eq $DataSourceName
     Remove-DPMChildDatasource -ProtectionGroup $ProtectionGroup -ChildDatasource $Datasource -KeepDiskData
     Set-protectiongroup $ProtectionGroup
     if($DPMServerName){
-        Disconnect-DPMServer -DPMServerName $OldDPMServer
+        Disconnect-DPMServer -DPMServerName $DPMServerName
     }
 }
 
@@ -522,7 +522,7 @@ function Get-ProtectionGroupofDataSource {
         Get-DPMDatasource | where {$_.Computer -eq $ProductionServerName -and $_.Name -eq $DataSourceNameName} | select ProtectionGroup -ExpandProperty ProtectionGroup | Get-ModifiableProtectionGroup
     }
     else{
-        Get-DPMDatasource | where {$_.Computer -eq $ProductionServer -and $_.Name -eq $DataSourceName} | select ProtectionGroup -ExpandProperty ProtectionGroup
+        Get-DPMDatasource | where {$_.Computer -eq $ProductionServerName -and $_.Name -eq $DataSourceName} | select ProtectionGroup -ExpandProperty ProtectionGroup
     }
 
 }
