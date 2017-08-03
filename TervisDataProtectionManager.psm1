@@ -784,3 +784,34 @@ $DPMStoreProtectionGroupDefinitions = [PSCustomObject][Ordered] @{
 #Export-ModuleMember -Function * -Alias * 
 #Export-ModuleMember -Function * -Alias *
 
+#https://exchange12rocks.org/2014/02/26/how-to-connect-to-dpm-sql-database-dpmdb/
+function Set-DPMSQLServerNameRegistryKeys {
+    param (
+        [Parameter(Mandatory)]$ComputerName,
+        [Parameter(Mandatory)]$OldComputerName
+    )
+    $PropertiesToUpdate = "ConnectionString","GlobalDbConnectionString","SqlServer","GlobalSqlServer","ReportingServer"
+    $DBRegistryKeyPath = "HKLM:SOFTWARE\Microsoft\Microsoft Data Protection Manager\DB"
+
+    foreach ($PropertyName in $PropertiesToUpdate) {
+        Invoke-ReplaceStringInRegistryKeyProperty -RegistryKeyPath $DBRegistryKeyPath -PropertyName $PropertyName -OldString $OldComputerName -String $ComputerName -ComputerName $ComputerName
+    }        
+}    
+
+
+function Invoke-ReplaceStringInRegistryKeyProperty {
+    param (
+        [Parameter(Mandatory)]$ComputerName,
+        [Parameter(Mandatory)]$RegistryKeyPath,
+        [Parameter(Mandatory)]$PropertyName,
+        [Parameter(Mandatory)]$OldString,
+        [Parameter(Mandatory)]$String
+    )
+    process {
+        Invoke-Command -ComputerName $ComputerName -ScriptBlock {  
+            $RegistryKey = Get-ItemProperty -Path $Using:RegistryKeyPath
+            $ValueWithStringReplaced = $RegistryKey.$Using:PropertyName -replace $Using:OldString, $Using:String
+            Set-ItemProperty -Path $Using:RegistryKeyPath -Name $Using:PropertyName -Value $ValueWithStringReplaced
+        }
+    }
+}
