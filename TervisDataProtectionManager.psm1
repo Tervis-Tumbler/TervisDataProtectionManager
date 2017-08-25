@@ -552,7 +552,7 @@ $DPMStoreProtectionGroupDefinitions = [PSCustomObject][Ordered] @{
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
-        Name = "1060KWBO-PC2"
+        Name = "1060KWBO-PC3"
         ProtectionGroupSchedule= "Stores-21Day-60Min-10pm"
         OffsetinMinutes = "5"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
