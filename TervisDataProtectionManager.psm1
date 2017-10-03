@@ -494,17 +494,22 @@ function Set-TervisDPMProtectionGroupSchedule
     param(
         [Parameter(Mandatory)]$ModifiableProtectionGroup,
         [Parameter(Mandatory)]$DPMProtectionGroupSchedulePolicyName,
+        $ProductionServerTimeZoneOffset = "0",
         [switch]$Online
     )
     $PolicyScheduletoSet = Get-DPMProtectionGroupSchedulePolicyDefinition -DPMProtectiongroupSchedulePolicy $DPMProtectionGroupSchedulePolicyName
+    $PolicyScheduleTimesofDay = get-date (Get-Date $PolicyScheduletoSet.TimesofDay).AddMinutes($ProductionServerTimeZoneOffset) -UFormat %R
+    $PolicyScheduleOnlineTOD = get-date (Get-Date $PolicyScheduletoSet.onlinetod).AddMinutes($ProductionServerTimeZoneOffset) -UFormat %R
+    
+
     Set-PolicyObjective -ProtectionGroup $ModifiableProtectionGroup -RetentionRangeInDays $PolicyScheduletoSet.RetentionRangeInDays -SynchronizationFrequency $PolicyScheduletoSet.SynchronizationFrequencyinMinutes
     $PolicySchedule = (Get-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -ShortTerm)[1] #| where { $_.JobType -eq “ShadowCopy” }
-    Set-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -Schedule $PolicySchedule -DaysOfWeek $($PolicyScheduletoSet.DaysOfWeek) -TimesOfDay $PolicyScheduletoSet.TimesofDay
+    Set-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -Schedule $PolicySchedule -DaysOfWeek $($PolicyScheduletoSet.DaysOfWeek) -TimesOfDay $PolicyScheduleTimesofDay
     if ($Online) {
         $OnlineRetentionRange = (New-Object -TypeName Microsoft.Internal.EnterpriseStorage.Dls.UI.ObjectModel.OMCommon.RetentionRange -ArgumentList $([int]$PolicyScheduletoSet.OnlineRetentionRangeInDays), Days)
         Set-PolicyObjective -ProtectionGroup $ModifiableProtectionGroup -OnlineRetentionRangeList $OnlineRetentionRange
         $OnlineSchedule = Get-DPMPolicySchedule -ProtectionGroup $ModifiableProtectionGroup -LongTerm Online
-        Set-Policyschedule -ProtectionGroup $ModifiableProtectionGroup -Schedule $OnlineSchedule[0] -TimesOfDay $PolicyScheduletoSet.OnlineTOD
+        Set-Policyschedule -ProtectionGroup $ModifiableProtectionGroup -Schedule $OnlineSchedule[0] -TimesOfDay $PolicyScheduleOnlineTOD
     }
 }
 
