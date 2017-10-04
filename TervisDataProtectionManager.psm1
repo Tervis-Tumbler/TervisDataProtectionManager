@@ -499,7 +499,7 @@ function Set-TervisDPMProtectionGroupSchedule
     )
     $PolicyScheduletoSet = Get-DPMProtectionGroupSchedulePolicyDefinition -DPMProtectiongroupSchedulePolicy $DPMProtectionGroupSchedulePolicyName
     $PolicyScheduleTimesofDay = get-date (Get-Date $PolicyScheduletoSet.TimesofDay).AddMinutes($ProductionServerTimeZoneOffset) -UFormat %R
-    $PolicyScheduleOnlineTOD = get-date (Get-Date $PolicyScheduletoSet.onlinetod).AddMinutes($ProductionServerTimeZoneOffset) -UFormat %R
+#    $PolicyScheduleOnlineTOD = get-date (Get-Date $PolicyScheduletoSet.onlinetod).AddMinutes($ProductionServerTimeZoneOffset) -UFormat %R
     
 
     Set-PolicyObjective -ProtectionGroup $ModifiableProtectionGroup -RetentionRangeInDays $PolicyScheduletoSet.RetentionRangeInDays -SynchronizationFrequency $PolicyScheduletoSet.SynchronizationFrequencyinMinutes
@@ -509,7 +509,7 @@ function Set-TervisDPMProtectionGroupSchedule
         $OnlineRetentionRange = (New-Object -TypeName Microsoft.Internal.EnterpriseStorage.Dls.UI.ObjectModel.OMCommon.RetentionRange -ArgumentList $([int]$PolicyScheduletoSet.OnlineRetentionRangeInDays), Days)
         Set-PolicyObjective -ProtectionGroup $ModifiableProtectionGroup -OnlineRetentionRangeList $OnlineRetentionRange
         $OnlineSchedule = Get-DPMPolicySchedule -ProtectionGroup $ModifiableProtectionGroup -LongTerm Online
-        Set-Policyschedule -ProtectionGroup $ModifiableProtectionGroup -Schedule $OnlineSchedule[0] -TimesOfDay $PolicyScheduleOnlineTOD
+        Set-Policyschedule -ProtectionGroup $ModifiableProtectionGroup -Schedule $OnlineSchedule[0] -TimesOfDay $PolicyScheduletoSet.OnlineTOD
     }
 }
 
@@ -588,6 +588,38 @@ function Invoke-CreateNewDPMServerRecoveryPoints {
                 New-DPMRecoveryPoint -Datasource $PGDataSource -Online
             }
         }
+    }
+    Disconnect-DPMServer
+}
+
+function Get-DPMProductionServerTimezoneOffsetinMinutes{
+    param(
+    [parameter(Mandatory)]$Productionserver,
+    [parameter(Mandatory)]$DPMServername
+    )
+    $DPMServerTimezone = (get-productionserver | where servername -eq $DPMServername).timezoneinformation
+    $ProductionServerTimeZone = (Get-ProductionServer | where servername -eq $ProductionServer).TimeZoneInformation
+    $DPMServerTimezoneBias.bias - $ProductionServerTimeZone.bias
+}
+
+function Set-TervisDPMProtectionGroupScheduleforAllStores {
+    param(
+        [parameter(Mandatory)]$DPMServername
+    )
+    Connect-DPMServer -DPMServerName $DPMServername
+    $ProtectionGroupList = Get-DPMProtectionGroup
+    $DataSources = Get-Datasource
+    foreach ($Protectiongroup in $ProtectionGroupList) {
+        $ModifiableProtectionGroup = Get-ModifiableProtectionGroup $ProtectionGroup
+        $Datasource = $DataSources| where protectiongroupname -eq $ProtectionGroup.Name
+        $ProductionServer = $Datasource.Instance
+        $TervisStoreProtecitonGroupDefinition = Get-DPMStoreProtectionGroupDefinition -Name $ProductionServer
+        
+        $ProductionserverOffset = Get-DPMProductionServerTimezoneOffsetinMinutes -Productionserver $ProductionServer -DPMServername $DPMServername
+        $Protectiongroup.Name
+        $ProductionserverOffset    
+        Set-TervisDPMProtectionGroupSchedule -ModifiableProtectionGroup $ModifiableProtectionGroup -DPMProtectionGroupSchedulePolicyName $TervisStoreProtecitonGroupDefinition.ProtectionGroupSchedule -ProductionServerTimeZoneOffset $ProductionserverOffset -Online
+        Set-ProtectionGroup $ModifiableProtectionGroup
     }
     Disconnect-DPMServer
 }
