@@ -372,11 +372,11 @@ function Add-DPMDatasourcetoProtectionGroup {
         [switch]$Online
     )
 
-    if (-not ($ChildDatasource.Protectiongroup)){
-        Add-childDatasource -ProtectionGroup $ModifiableProtectionGroup -ChildDatasource $ChildDatasource
+    if (-not ($Datasource.Protectiongroup)){
+        Add-childDatasource -ProtectionGroup $ModifiableProtectionGroup -ChildDatasource $Datasource
     }
     if ($Online){
-        Add-childDatasource -ProtectionGroup $ModifiableProtectionGroup -ChildDatasource $ChildDatasource -Online
+        Add-childDatasource -ProtectionGroup $ModifiableProtectionGroup -ChildDatasource $Datasource -Online
     }
 }
 
@@ -465,27 +465,32 @@ function Invoke-ConfigureDPMProtectionGroupOnlineProtection {
         [Parameter(Mandatory)]$ProtectionGroupName,
         [Parameter(Mandatory)]$DPMProtectionGroupSchedulePolicyName
     )
-
-    $DataSources = Get-Datasource
+    Connect-DPMServer $DPMServerName
+    $DataSourceList = Get-Datasource
     $ProtectionGroup = Get-ProtectionGroup | where name -EQ $ProtectionGroupName
     $ModifiableProtectionGroup = Get-ModifiableProtectionGroup -ProtectionGroup $ProtectionGroup
-    $DataSource = $DataSources | where protectiongroupname -eq $ProtectionGroupName
-    $Childdatasource = $DataSource
-    $StoreNodeDefinition = Get-DPMStoreProtectionGroupDefinition -Name $Childdatasource.Computer
-    $DPMProtectionGroupSchedulePolicyName = $StoreNodeDefinition.ProtectionGroupSchedule
-    $SplatVariable = New-SplatVariable -Function Set-TervisDPMProtectionType -Variables (Get-Variable)
-    Set-TervisDPMProtectionType @SplatVariable
+    $PGDatasources = $DataSourceList | where protectiongroupname -eq $ProtectionGroupName
 
-    $SplatVariable = New-SplatVariable -Function Add-DPMDatasourcetoProtectionGroup -Variables (Get-Variable)
-    Add-DPMDatasourcetoProtectionGroup @SplatVariable
+
+#    $StoreNodeDefinition = Get-DPMStoreProtectionGroupDefinition -Name $Childdatasource.Computer
+#    $DPMProtectionGroupSchedulePolicyName = $StoreNodeDefinition.ProtectionGroupSchedule
+
+#    $SplatVariable = New-SplatVariable -Function Set-TervisDPMProtectionType -Variables (Get-Variable)
+#    Set-TervisDPMProtectionType @SplatVariable
+    
+    Set-DPMProtectionType -ProtectionGroup $ModifiableProtectiongroup -ShortTerm Disk -LongTerm Online
+    
+
+    foreach ($Datasource in $PGDatasources){
+        #$Childdatasource = $DataSource
+        $SplatVariable = New-SplatVariable -Function Add-DPMDatasourcetoProtectionGroup -Variables (Get-Variable)
+        Add-DPMDatasourcetoProtectionGroup @SplatVariable -Online
+    }
 
     $SplatVariable = New-SplatVariable -Function Set-TervisDPMProtectionGroupSchedule -Variables (Get-Variable)
-    Set-TervisDPMProtectionGroupSchedule @SplatVariable
     
-    if ($EnableCompression){
-        Set-DPMPerformanceOptimization -ProtectionGroup $ModifiableProtectionGroup -EnableCompression
-    }
     Set-protectiongroup $ModifiableProtectionGroup
+    Disconnect-DPMServer
 }    
 
 function Set-TervisDPMProtectionGroupSchedule
@@ -498,9 +503,11 @@ function Set-TervisDPMProtectionGroupSchedule
         [switch]$Online
     )
     $PolicyScheduletoSet = Get-DPMProtectionGroupSchedulePolicyDefinition -DPMProtectiongroupSchedulePolicy $DPMProtectionGroupSchedulePolicyName
+    $PolicyScheduleTimesofDay = @()
+    foreach ($TimeofDay in $PolicyScheduletoSet.TimesofDay){
+        $PolicyScheduleTimesofDay += get-date (Get-Date $TimeofDay).AddMinutes($ProductionServerTimeZoneOffset) -UFormat %R
+    }
     $PolicyScheduleTimesofDay = get-date (Get-Date $PolicyScheduletoSet.TimesofDay).AddMinutes($ProductionServerTimeZoneOffset) -UFormat %R
-#    $PolicyScheduleOnlineTOD = get-date (Get-Date $PolicyScheduletoSet.onlinetod).AddMinutes($ProductionServerTimeZoneOffset) -UFormat %R
-    
 
     Set-PolicyObjective -ProtectionGroup $ModifiableProtectionGroup -RetentionRangeInDays $PolicyScheduletoSet.RetentionRangeInDays -SynchronizationFrequency $PolicyScheduletoSet.SynchronizationFrequencyinMinutes
     $PolicySchedule = (Get-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -ShortTerm)[1] #| where { $_.JobType -eq “ShadowCopy” }
@@ -571,10 +578,16 @@ function Remove-DPMDataSourceFromProtectionGroup {
 function Invoke-CreateNewDPMServerRecoveryPoints {
    param(
         [Parameter(Mandatory)]$DPMServerName,
+        $ProtectiongroupName,
         [Parameter(Mandatory)][ValidateSet(“ExpressFull”,”Online”)]$BackupType
     )
     Connect-DPMServer -DPMServerName $DPMServerName
-    $ProtectionGroups = Get-ProtectionGroup
+    if ($ProtectiongroupName) {
+        $ProtectionGroups = Get-ProtectionGroup | where name -eq $ProtectiongroupName
+    }
+    else {
+        $ProtectionGroups = Get-ProtectionGroup
+    }
     $DataSourceList = Get-Datasource
     foreach ($Protectiongroup in $ProtectionGroups) {
         $PGDataSources = $DataSourceList | where protectiongroupname -eq $ProtectionGroup.Name
@@ -616,8 +629,6 @@ function Set-TervisDPMProtectionGroupScheduleforAllStores {
         $TervisStoreProtecitonGroupDefinition = Get-DPMStoreProtectionGroupDefinition -Name $ProductionServer
         
         $ProductionserverOffset = Get-DPMProductionServerTimezoneOffsetinMinutes -Productionserver $ProductionServer -DPMServername $DPMServername
-        $Protectiongroup.Name
-        $ProductionserverOffset    
         Set-TervisDPMProtectionGroupSchedule -ModifiableProtectionGroup $ModifiableProtectionGroup -DPMProtectionGroupSchedulePolicyName $TervisStoreProtecitonGroupDefinition.ProtectionGroupSchedule -ProductionServerTimeZoneOffset $ProductionserverOffset -Online
         Set-ProtectionGroup $ModifiableProtectionGroup
     }
@@ -643,12 +654,39 @@ $DPMProtectionGroupSchedulePolicies = [PSCustomObject][Ordered] @{
         OnlineRetentionRangeInDays = "21"
     },
     [PSCustomObject][Ordered] @{
-        Name = "21day-30Min-7am_3pm_11pm"
+        Name = "ST_21day_60Min_0700_1500_2300_Online_21Day_0000"
         RetentionRangeInDays = "21"
-        SynchronizationFrequencyinMinutes = "30"
-        TimesofDay = "07:00,15:00,23:00"
+        SynchronizationFrequencyinMinutes = "60"
+        TimesofDay = "07:00","15:00","23:00"
         DaysOfWeek = "su","mo","tu","we","th","fr","sa"
-    }
+        OnlineTOD = "00:00"
+        OnlineRetentionRangeInDays = "21"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "21day-15Min-12am_8am_4pm"
+        RetentionRangeInDays = "21"
+        SynchronizationFrequencyinMinutes = "15"
+        TimesofDay = "00:00,08:00,16:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "ST_21day_60Min_0800_1200_1800_Online_21Day_1900"
+        RetentionRangeInDays = "21"
+        SynchronizationFrequencyinMinutes = "60"
+        TimesofDay = "08:00","12:00","18:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+        OnlineTOD = "19:00"
+        OnlineRetentionRangeInDays = "21"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "ST_21day_15Min_0800_2000_Online_21Day_2100"
+        RetentionRangeInDays = "21"
+        SynchronizationFrequencyinMinutes = "15"
+        TimesofDay = "08:00","20:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+        OnlineTOD = "21:00"
+        OnlineRetentionRangeInDays = "21"
+    },
     [PSCustomObject][Ordered] @{
         Name = "Online-21Day-12am"
         SynchronizationFrequencyinMinutes = "30"
