@@ -319,37 +319,37 @@ function Move-TervisStoreDatabaseToNewDPMServer {
         [parameter(Mandatory)]$OldDPMServer
     )
 
-    $StoreNodeDefinition = Get-DPMStoreProtectionGroupDefinition -Name $ComputerName
-    $StoreInformation = Get-TervisStoreDatabaseInformation -Computername $($StoreNodeDefinition.Name)
+    $ProductionServerDefinition = Get-DPMProductionServerDefinition -Name $ComputerName
+    $StoreInformation = Get-TervisStoreDatabaseInformation -Computername $($ProductionServerDefinition.Name)
     $StoreName = $StoreInformation.StoreName
     $DataSourceName = $StoreInformation.DatabaseName
     $ProtectionGroupName = "Stores-$StoreName" -replace " ","_"
     
     Remove-DPMDataSourceFromProtectionGroup -Computername $Computername -DatasourceName $DataSourceName -DPMServerName $OldDPMServer
-    Set-DPMServernameOnRemoteComputer -Computername $StoreNodeDefinition.Name -DPMServerName $StoreNodeDefinition.DPMServerName
-    Invoke-AttachDPMProductionServer -Name $StoreNodeDefinition.Name -DPMServerName $StoreNodeDefinition.DPMServerName
-    Invoke-ProtectDPMDataSource -DPMServerName $StoreNodeDefinition.DPMServerName `
+    Set-DPMServernameOnRemoteComputer -Computername $ProductionServerDefinition.Name -DPMServerName $ProductionServerDefinition.DPMServerName
+    Invoke-AttachDPMProductionServer -Name $ProductionServerDefinition.Name -DPMServerName $ProductionServerDefinition.DPMServerName
+    Invoke-ProtectDPMDataSource -DPMServerName $ProductionServerDefinition.DPMServerName `
         -ProductionServerName $Computername `
         -DatasourceName $DataSourceName `
         -ProtectionGroupName $ProtectionGroupName `
-        -DPMProtectionGroupSchedulePolicy $StoreNodeDefinition.ProtectionGroupSchedule `
+        -DPMProtectionGroupSchedulePolicy $ProductionServerDefinition.ProtectionGroupSchedule `
         -EnableCompression
             
-#    Connect-DPMServer -DPMServerName $StoreNodeDefinition.DPMServerName
-#    Set-DPMServernameOnRemoteComputer -Computername $StoreNodeDefinition.Name -DPMServerName $StoreNodeDefinition.DPMServerName
-#    Invoke-AttachDPMProductionServer -Name $StoreNodeDefinition.Name -DPMServerName $StoreNodeDefinition.DPMServerName
-#    $ProductionServer = Get-ProductionServer | where servername -eq $($StoreNodeDefinition.Name)
+#    Connect-DPMServer -DPMServerName $ProductionServerDefinition.DPMServerName
+#    Set-DPMServernameOnRemoteComputer -Computername $ProductionServerDefinition.Name -DPMServerName $ProductionServerDefinition.DPMServerName
+#    Invoke-AttachDPMProductionServer -Name $ProductionServerDefinition.Name -DPMServerName $ProductionServerDefinition.DPMServerName
+#    $ProductionServer = Get-ProductionServer | where servername -eq $($ProductionServerDefinition.Name)
 #    $Datasource = Get-Datasource -ProductionServer $ProductionServer -Inquire | where { ($_.logicalpath,$_.name) -contains $DatasourceName }
 #    $ProtectionGroup = New-ProtectionGroup -Name $ProtectionGroupName
 #    Add-childDatasource -ProtectionGroup $ProtectionGroup -ChildDatasource $Datasource
 #    Set-ProtectionType -ProtectionGroup $ProtectionGroup -ShortTerm disk
-#    Set-TervisDPMProtectionGroupSchedule -ProtectionGroup $ProtectionGroup -DPMProtectionGroupSchedulePolicy $StoreNodeDefinition.ProtectionGroupSchedule
+#    Set-TervisDPMProtectionGroupSchedule -ProtectionGroup $ProtectionGroup -DPMProtectionGroupSchedulePolicy $ProductionServerDefinition.ProtectionGroupSchedule
 #    Get-DatasourceDiskAllocation -Datasource $Datasource
 #    Set-DatasourceDiskAllocation -Datasource $Datasource -ProtectionGroup $ProtectionGroup
 #    Set-ReplicaCreationMethod -ProtectionGroup $ProtectionGroup -NOW
 #    Set-DPMPerformanceOptimization -ProtectionGroup $ProtectionGroup -EnableCompression
 #    Set-protectiongroup $ProtectionGroup
-#    Disconnect-DPMServer -DPMServerName $StoreNodeDefinition.DPMServerName
+#    Disconnect-DPMServer -DPMServerName $ProductionServerDefinition.DPMServerName
 }
 
 function Set-TervisDPMProtectionType {
@@ -391,7 +391,7 @@ function Invoke-ProtectDPMDataSource {
         [switch]$EnableCompression,
         [switch]$Online
     )
-    Connect-DPMServer -DPMServerName $StoreNodeDefinition.DPMServerName
+    Connect-DPMServer -DPMServerName $ProductionServerDefinition.DPMServerName
     if( -not ($ProtectionGroup = (Get-ProtectionGroup | where name -eq $ProtectionGroupName))){
         $ModifiableProtectionGroup = New-ProtectionGroup -Name $ProtectionGroupName
     }
@@ -399,7 +399,7 @@ function Invoke-ProtectDPMDataSource {
         $ProtectionGroup = Get-ProtectionGroup | where name -eq $ProtectionGroupName
         $ModifiableProtectionGroup = Get-ModifiableProtectionGroup -ProtectionGroup $ProtectionGroup
     }
-    $ProductionServer = Get-ProductionServer | where servername -eq $($StoreNodeDefinition.Name)
+    $ProductionServer = Get-ProductionServer | where servername -eq $($ProductionServerDefinition.Name)
     $Datasource = Get-Datasource -ProductionServer $ProductionServer -Inquire | where { ($_.logicalpath,$_.name) -contains $DatasourceName }
     if($ChildDatasourceName){
         $ChildDatasource = Get-ChildDatasource -ChildDatasource $Datasource | where Name -EQ $ChildDatasourceName
@@ -428,7 +428,7 @@ function Invoke-ProtectDPMDataSource {
         Set-DPMPerformanceOptimization -ProtectionGroup $ModifiableProtectionGroup -EnableCompression
     }
     Set-protectiongroup $ModifiableProtectionGroup
-    Disconnect-DPMServer -DPMServerName $StoreNodeDefinition.DPMServerName
+    Disconnect-DPMServer -DPMServerName $ProductionServerDefinition.DPMServerName
 }
 
 function New-TervisDPMProtectionGroup {
@@ -472,8 +472,8 @@ function Invoke-ConfigureDPMProtectionGroupOnlineProtection {
     $PGDatasources = $DataSourceList | where protectiongroupname -eq $ProtectionGroupName
 
 
-#    $StoreNodeDefinition = Get-DPMStoreProtectionGroupDefinition -Name $Childdatasource.Computer
-#    $DPMProtectionGroupSchedulePolicyName = $StoreNodeDefinition.ProtectionGroupSchedule
+#    $ProductionServerDefinition = Get-DPMProductionServerDefinition -Name $Childdatasource.Computer
+#    $DPMProtectionGroupSchedulePolicyName = $ProductionServerDefinition.ProtectionGroupSchedule
 
 #    $SplatVariable = New-SplatVariable -Function Set-TervisDPMProtectionType -Variables (Get-Variable)
 #    Set-TervisDPMProtectionType @SplatVariable
@@ -547,14 +547,14 @@ function Get-DPMProtectionGroupSchedulePolicyDefinition{
     else{$DPMProtectionGroupSchedulePolicies}
 }
 
-function Get-DPMStoreProtectionGroupDefinition{
+function Get-DPMProductionServerDefinition{
     param(
         [String]$Name
     )
     if($Name){
-        $DPMStoreProtectionGroupDefinitions | Where name -EQ $Name
+        $ProductionServerDefinitions | Where name -EQ $Name
     }
-    else{$DPMStoreProtectionGroupDefinitions}
+    else{$ProductionServerDefinitions}
 }
 
 function Remove-DPMDataSourceFromProtectionGroup {
@@ -626,7 +626,7 @@ function Set-TervisDPMProtectionGroupScheduleforAllStores {
         $ModifiableProtectionGroup = Get-ModifiableProtectionGroup $ProtectionGroup
         $Datasource = $DataSources| where protectiongroupname -eq $ProtectionGroup.Name
         $ProductionServer = $Datasource.Instance
-        $TervisStoreProtecitonGroupDefinition = Get-DPMStoreProtectionGroupDefinition -Name $ProductionServer
+        $TervisStoreProtecitonGroupDefinition = Get-DPMProductionServerDefinition -Name $ProductionServer
         
         $ProductionserverOffset = Get-DPMProductionServerTimezoneOffsetinMinutes -Productionserver $ProductionServer -DPMServername $DPMServername
         Set-TervisDPMProtectionGroupSchedule -ModifiableProtectionGroup $ModifiableProtectionGroup -DPMProtectionGroupSchedulePolicyName $TervisStoreProtecitonGroupDefinition.ProtectionGroupSchedule -ProductionServerTimeZoneOffset $ProductionserverOffset -Online
@@ -710,7 +710,7 @@ function Get-ProtectionGroupofDataSource {
 
 }
 
-$DPMStoreProtectionGroupDefinitions = [PSCustomObject][Ordered] @{
+$ProductionServerDefinitions = [PSCustomObject][Ordered] @{
         Name = "1010OSBO3-PC"
         ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
         OffsetinMinutes = "5"
