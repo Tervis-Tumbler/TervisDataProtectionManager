@@ -507,7 +507,7 @@ function Set-TervisDPMProtectionGroupSchedule
     foreach ($TimeofDay in $PolicyScheduletoSet.TimesofDay){
         $PolicyScheduleTimesofDay += get-date (Get-Date $TimeofDay).AddMinutes($ProductionServerTimeZoneOffset) -UFormat %R
     }
-    $PolicyScheduleTimesofDay = get-date (Get-Date $PolicyScheduletoSet.TimesofDay).AddMinutes($ProductionServerTimeZoneOffset) -UFormat %R
+#    $PolicyScheduleTimesofDay = get-date (Get-Date $PolicyScheduletoSet.TimesofDay).AddMinutes($ProductionServerTimeZoneOffset) -UFormat %R
 
     Set-PolicyObjective -ProtectionGroup $ModifiableProtectionGroup -RetentionRangeInDays $PolicyScheduletoSet.RetentionRangeInDays -SynchronizationFrequency $PolicyScheduletoSet.SynchronizationFrequencyinMinutes
     $PolicySchedule = (Get-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -ShortTerm)[1] #| where { $_.JobType -eq “ShadowCopy” }
@@ -692,8 +692,36 @@ $DPMProtectionGroupSchedulePolicies = [PSCustomObject][Ordered] @{
         SynchronizationFrequencyinMinutes = "30"
         TimesofDay = "07:00,15:00,23:00"
         DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
+        RetentionRangeInDays = "21"
+        SynchronizationFrequencyinMinutes = "15"
+        TimesofDay = "07:00","15:00","23:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+        OnlineTOD = "09:00"
+        OnlineRetentionRangeInDays = "21"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "ST_21day_60Min_1900_Online_21Day_2100"
+        RetentionRangeInDays = "21"
+        SynchronizationFrequencyinMinutes = "15"
+        TimesofDay = "19:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+        OnlineTOD = "21:00"
+        OnlineRetentionRangeInDays = "21"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "ST_21day_15Min_0000_1200_Online_21Day_0200"
+        RetentionRangeInDays = "21"
+        SynchronizationFrequencyinMinutes = "15"
+        TimesofDay = "00:00","12:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+        OnlineTOD = "02:00"
+        OnlineRetentionRangeInDays = "21"
     }
 
+    "ST_21day_15Min_0000_1200_Online_21Day_0200"
 function Get-ProtectionGroupofDataSource {
     param (
         [parameter(Mandatory)]$ProductionServerName,
@@ -1009,7 +1037,81 @@ $ProductionServerDefinitions = [PSCustomObject][Ordered] @{
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
         OffsetinMinutes = "30"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "Cattools"
+        ProtectionGroupSchedule= "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "inf-dc01"
+        ProtectionGroupSchedule= "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "epdm"
+        ProtectionGroupSchedule= "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "exchange2016"
+        ProtectionGroupSchedule= "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "WorldShip"
+        ProtectionGroupSchedule= "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "WDS"
+        ProtectionGroupSchedule= "ST_21day_60Min_1900_Online_21Day_2100"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "WDS2012r2"
+        ProtectionGroupSchedule= "ST_21day_60Min_1900_Online_21Day_2100"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "P-WCS"
+        ProtectionGroupSchedule= "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "prd-wcsapp01"
+        ProtectionGroupSchedule= "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "tfs2012"
+        ProtectionGroupSchedule= "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "SQLRMSHQ"
+        ProtectionGroupSchedule= "ST_21day_15Min_0000_1200_Online_21Day_0200"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "SQL"
+        ProtectionGroupSchedule= "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
     }
+
+
  
 
 #Export-ModuleMember -Function * -Alias * 
