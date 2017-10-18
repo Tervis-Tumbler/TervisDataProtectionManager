@@ -507,11 +507,18 @@ function Set-TervisDPMProtectionGroupSchedule
     foreach ($TimeofDay in $PolicyScheduletoSet.TimesofDay){
         $PolicyScheduleTimesofDay += get-date (Get-Date $TimeofDay).AddMinutes($ProductionServerTimeZoneOffset) -UFormat %R
     }
-#    $PolicyScheduleTimesofDay = get-date (Get-Date $PolicyScheduletoSet.TimesofDay).AddMinutes($ProductionServerTimeZoneOffset) -UFormat %R
 
-    Set-PolicyObjective -ProtectionGroup $ModifiableProtectionGroup -RetentionRangeInDays $PolicyScheduletoSet.RetentionRangeInDays -SynchronizationFrequency $PolicyScheduletoSet.SynchronizationFrequencyinMinutes
-    $PolicySchedule = (Get-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -ShortTerm)[1] #| where { $_.JobType -eq “ShadowCopy” }
-    Set-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -Schedule $PolicySchedule -DaysOfWeek $($PolicyScheduletoSet.DaysOfWeek) -TimesOfDay $PolicyScheduleTimesofDay
+    if ($PolicyScheduletoSet.SynchronizationFrequencyinMinutes -eq 0){
+        Set-PolicyObjective -ProtectionGroup $ModifiableProtectionGroup -RetentionRangeInDays $PolicyScheduletoSet.RetentionRangeInDays -BeforeRecoveryPoint
+    }
+    else {
+        Set-PolicyObjective -ProtectionGroup $ModifiableProtectionGroup -RetentionRangeInDays $PolicyScheduletoSet.RetentionRangeInDays -SynchronizationFrequency $PolicyScheduletoSet.SynchronizationFrequencyinMinutes
+    }
+    $ShadowCopyPolicySchedule = Get-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -ShortTerm | where { $_.JobType -eq “ShadowCopy” }
+    Set-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -Schedule $ShadowCopyPolicySchedule -DaysOfWeek $($PolicyScheduletoSet.DaysOfWeek) -TimesOfDay $PolicyScheduleTimesofDay
+    $FullReplicationforApplicationPolicySchedule = Get-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -ShortTerm | where { $_.JobType-eq “FullReplicationForApplication” }
+    Set-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -Schedule $FullReplicationforApplicationPolicySchedule -DaysOfWeek $($PolicyScheduletoSet.DaysOfWeek) -TimesOfDay $PolicyScheduleTimesofDay
+    
     if ($Online) {
         $OnlineRetentionRange = (New-Object -TypeName Microsoft.Internal.EnterpriseStorage.Dls.UI.ObjectModel.OMCommon.RetentionRange -ArgumentList $([int]$PolicyScheduletoSet.OnlineRetentionRangeInDays), Days)
         Set-PolicyObjective -ProtectionGroup $ModifiableProtectionGroup -OnlineRetentionRangeList $OnlineRetentionRange
@@ -712,12 +719,21 @@ $DPMProtectionGroupSchedulePolicies = [PSCustomObject][Ordered] @{
         OnlineRetentionRangeInDays = "21"
     },
     [PSCustomObject][Ordered] @{
-        Name = "ST_21day_15Min_0000_1200_Online_21Day_0200"
+        Name = "ST_21day_15Min_0900_1700_0100_Online_21Day_0400"
         RetentionRangeInDays = "21"
         SynchronizationFrequencyinMinutes = "15"
-        TimesofDay = "00:00","12:00"
+        TimesofDay = "09:00","14:00","01:00"
         DaysOfWeek = "su","mo","tu","we","th","fr","sa"
-        OnlineTOD = "02:00"
+        OnlineTOD = "04:00"
+        OnlineRetentionRangeInDays = "21"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "ST_21day_SyncBeforeRP_0600_1400_2200_Online_21Day_1700"
+        RetentionRangeInDays = "21"
+        SynchronizationFrequencyinMinutes = "0"
+        TimesofDay = "06:00","14:00","22:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+        OnlineTOD = "17:00"
         OnlineRetentionRangeInDays = "21"
     }
 
@@ -1100,7 +1116,7 @@ $ProductionServerDefinitions = [PSCustomObject][Ordered] @{
     },
     [PSCustomObject][Ordered] @{
         Name = "SQLRMSHQ"
-        ProtectionGroupSchedule= "ST_21day_15Min_0000_1200_Online_21Day_0200"
+        ProtectionGroupSchedule= "ST_21day_15Min_0900_1700_0100_Online_21Day_0400"
         OffsetinMinutes = "0"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
@@ -1110,7 +1126,24 @@ $ProductionServerDefinitions = [PSCustomObject][Ordered] @{
         OffsetinMinutes = "0"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     }
-
+    [PSCustomObject][Ordered] @{
+        Name = "Sharepoint2007"
+        ProtectionGroupSchedule= "ST_21day_SyncBeforeRP_0600_1400_2200_Online_21Day_1700"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "scheduledtasks"
+        ProtectionGroupSchedule= "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "rdmanager"
+        ProtectionGroupSchedule= "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    }
 
  
 
