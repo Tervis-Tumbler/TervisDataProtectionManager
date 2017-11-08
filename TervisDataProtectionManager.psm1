@@ -649,11 +649,11 @@ function Set-TervisDPMProtectionGroupScheduleforAllStores {
 
 function Install-DPMProtectionAgentBehindFirewall {
     param(
-        [parameter(Mandatory)]$Computername
+        [parameter(Mandatory)]$Computername,
+        [parameter(Mandatory)]$DPMServerName
     )
-    Connect-DPMServer -DPMServerName $DPMServername
-    
-
+    $AgentInstallPathRoot = "\\$DPMServerName\c$\Program Files\Microsoft System Center 2016\DPM\DPM\agents\RA"
+    $AgentDirectory = (gci $AgentInstallPathRoot\ | where { $_.PSIsContainer } | sort CreationTime -desc | select -f 1).fullname
 }
 
 
@@ -673,6 +673,25 @@ function Get-ProtectionGroupofDataSource {
 
 }
 
+Invoke-DisableAllDPMAgents {
+    param(
+        [parameter(Mandatory)]$DPMServerName
+    )
+    Connect-DPMServer -DPMServerName $DPMServerName
+    $ProductionServers = Get-ProductionServer | where ServerProtectionState -eq "HasDatasourcesProtected"
+    $ProductionServers | %{Disable-DPMProductionServer -ProductionServer $_ -Confirm:$false}
+    Disconnect-DPMServer
+}
+
+Invoke-DisableAllDPMAgents {
+    param(
+        [parameter(Mandatory)]$DPMServerName
+    )
+    Connect-DPMServer -DPMServerName $DPMServerName
+    $ProductionServers = Get-ProductionServer | where ServerProtectionState -eq "HasDatasourcesProtected"
+    $ProductionServers | %{Enable-DPMProductionServer -ProductionServer $_ -Confirm:$false}
+    Disconnect-DPMServer
+}
  
 
 #Export-ModuleMember -Function * -Alias * 
