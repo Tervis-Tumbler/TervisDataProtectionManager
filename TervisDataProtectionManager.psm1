@@ -673,7 +673,7 @@ function Get-ProtectionGroupofDataSource {
 
 }
 
-Invoke-DisableAllDPMAgents {
+function Invoke-DisableAllDPMAgents {
     param(
         [parameter(Mandatory)]$DPMServerName
     )
@@ -683,7 +683,7 @@ Invoke-DisableAllDPMAgents {
     Disconnect-DPMServer
 }
 
-Invoke-DisableAllDPMAgents {
+function Invoke-DisableAllDPMAgents {
     param(
         [parameter(Mandatory)]$DPMServerName
     )
@@ -693,6 +693,13 @@ Invoke-DisableAllDPMAgents {
     Disconnect-DPMServer
 }
  
+function Install-OraHollengrenMaintenanceScripts{
+    param(
+        [parameter(Mandatory)]$Computername
+    )
+    $MaintenancePlanFile = "$PSScriptRoot\MaintenanceSolution.sql"
+    Invoke-Sqlcmd -ServerInstance $ComputerName -InputFile $MaintenancePlanFile
+}
 
 #Export-ModuleMember -Function * -Alias * 
 #Export-ModuleMember -Function * -Alias *
