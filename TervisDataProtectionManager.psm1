@@ -376,26 +376,27 @@ function Add-DPMDatasourcetoProtectionGroup {
         [switch]$Online
     )
 
-    if (-not ($Datasource.Protectiongroup)){
+#    if (-not ($Datasource.Protectiongroup)){
+    if (-not $Datasource.Protected){
         Add-childDatasource -ProtectionGroup $ModifiableProtectionGroup -ChildDatasource $Datasource
     }
-    if ($Online){
+    else{
         Add-childDatasource -ProtectionGroup $ModifiableProtectionGroup -ChildDatasource $Datasource -Online
     }
 }
 
 function Invoke-ProtectDPMDataSource {
    param(
-        [Parameter(Mandatory)]$DPMServerName,
-        [Parameter(Mandatory)]$ProductionServerName,
-        [Parameter(Mandatory)]$DatasourceName,
-        $ChildDatasourceName,
-        [Parameter(Mandatory)]$ProtectionGroupName,
-        [Parameter(Mandatory)]$DPMProtectionGroupSchedulePolicyName,
-        [switch]$EnableCompression,
-        [switch]$Online
+#        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$DPMServerName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ProductionServerName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$DatasourceName,
+        [Parameter(ValueFromPipelineByPropertyName)]$ChildDatasourceName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$ProtectionGroupName,
+        [Parameter(Mandatory,ValueFromPipelineByPropertyName)]$DPMProtectionGroupSchedulePolicyName,
+        [Parameter(ValueFromPipelineByPropertyName)][switch]$EnableCompression,
+        [Parameter(ValueFromPipelineByPropertyName)][switch]$Online
     )
-    Connect-DPMServer -DPMServerName $ProductionServerDefinition.DPMServerName
+#    Connect-DPMServer -DPMServerName $DPMServerName
     if( -not ($ProtectionGroup = (Get-ProtectionGroup | where name -eq $ProtectionGroupName))){
         $ModifiableProtectionGroup = New-ProtectionGroup -Name $ProtectionGroupName
     }
@@ -403,7 +404,7 @@ function Invoke-ProtectDPMDataSource {
         $ProtectionGroup = Get-ProtectionGroup | where name -eq $ProtectionGroupName
         $ModifiableProtectionGroup = Get-ModifiableProtectionGroup -ProtectionGroup $ProtectionGroup
     }
-    $ProductionServer = Get-ProductionServer | where servername -eq $($ProductionServerDefinition.Name)
+    $ProductionServer = Get-ProductionServer | where servername -eq $ProductionServerName
     $Datasource = Get-Datasource -ProductionServer $ProductionServer -Inquire | where { ($_.logicalpath,$_.name) -contains $DatasourceName }
     if($ChildDatasourceName){
         $ChildDatasource = Get-ChildDatasource -ChildDatasource $Datasource | where Name -EQ $ChildDatasourceName
@@ -411,13 +412,20 @@ function Invoke-ProtectDPMDataSource {
     else {
         $ChildDatasource = $Datasource
     }
-    $SplatVariable = New-SplatVariable -Function Set-TervisDPMProtectionType -Variables (Get-Variable)
-    Set-TervisDPMProtectionType @SplatVariable
+
     $SplatVariable = New-SplatVariable -Function Add-DPMDatasourcetoProtectionGroup -Variables (Get-Variable)
     Add-DPMDatasourcetoProtectionGroup @SplatVariable
+    $SplatVariable = New-SplatVariable -Function Set-TervisDPMProtectionType -Variables (Get-Variable)
+    Set-TervisDPMProtectionType @SplatVariable
+
+    if($Online){
+        $SplatVariable = New-SplatVariable -Function Add-DPMDatasourcetoProtectionGroup -Variables (Get-Variable)
+        Add-DPMDatasourcetoProtectionGroup @SplatVariable
+    }
+
     $SplatVariable = New-SplatVariable -Function Set-TervisDPMProtectionGroupSchedule -Variables (Get-Variable)
     Set-TervisDPMProtectionGroupSchedule @SplatVariable
-    if ($ChildDatasource.ObjectType -eq "Volume"){
+    if ($ChildDatasourceName){
         Get-DatasourceDiskAllocation -Datasource $ChildDatasource -CalculateSize
     }
     else {
@@ -432,7 +440,7 @@ function Invoke-ProtectDPMDataSource {
         Set-DPMPerformanceOptimization -ProtectionGroup $ModifiableProtectionGroup -EnableCompression
     }
     Set-protectiongroup $ModifiableProtectionGroup
-    Disconnect-DPMServer -DPMServerName $ProductionServerDefinition.DPMServerName
+#    Disconnect-DPMServer -DPMServerName $DPMServerName
 }
 
 function New-TervisDPMProtectionGroup {
@@ -704,3 +712,27 @@ function Install-OraHollengrenMaintenanceScripts{
 #Export-ModuleMember -Function * -Alias * 
 #Export-ModuleMember -Function * -Alias *
 
+function Invoke-ConfigureDPMServerProtectionGroupFromDefinitions {
+    param(
+        [Parameter(Mandatory)]$DPMServerName,
+        [Parameter(Mandatory)]$ProductionServerName
+    )
+    $ProductionServerDefinition = Get-DPMProductionServerDefinition -Name $ProductionServerName
+    $DPMProtectionGroupSchedulePolicyName = $ProductionServerDefinition.ProtectionGroupSchedule
+    $CimSession = New-CimSession -ComputerName $ProductionServerName
+    $ProtectableProductionComputerVolumes = Get-Volume -CimSession $CimSession | where {($_.DriveType -eq "Fixed") -and ($_.FilesystemLabel -ne "Recovery") -and ($_.DriveLetter -ne "c") -and ($_.FileSystemLabel -ne "System Reserved")}
+    Remove-CimSession $CimSession
+    
+    Connect-DPMServer $DPMServerName
+    $ProductionServer = Get-ProductionServer | where ServerName -eq $ProductionServerName
+    #$VolumesToProtect = $DataSources | where {($_.Computer -eq $ProductionServerName) -and ($_.Name -match "^[a-zA-Z]:\\")} | select LogicalPath,ProtectionGroup
+    $DatasourceVolumes = Get-DPMDatasource -ProductionServer $ProductionServer -Inquire | where Computer -eq $ProductionServerName
+    
+    foreach ($ProtectableVolume in $ProtectableProductionComputerVolumes) {
+        $ProtectionGroupName = "$ProductionServerName - $($ProtectableVolume.FileSystemLabel)"
+        $DatasourceToProtect = $DatasourceVolumes | where name -like "$($ProtectableVolume.DriveLetter)*"
+        Invoke-ProtectDPMDataSource -ProductionServerName $ProductionServerName -DatasourceName $DatasourceToProtect.Name -ProtectionGroupName $ProtectionGroupName -DPMProtectionGroupSchedulePolicyName $DPMProtectionGroupSchedulePolicyName -Online
+    }
+    
+    Disconnect-DPMServer
+}
