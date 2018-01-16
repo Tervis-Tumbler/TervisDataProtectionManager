@@ -109,4 +109,13 @@
         DaysOfWeek = "su","mo","tu","we","th","fr","sa"
         OnlineTOD = "12:00"
         OnlineRetentionRangeInDays = "21"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "File_21day_30Min_0700_1500_2300_Online_21Day_0800"
+        RetentionRangeInDays = "21"
+        SynchronizationFrequencyinMinutes = "30"
+        TimesofDay = "07:00","15:00","23:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+        OnlineTOD = "08:00"
+        OnlineRetentionRangeInDays = "21"
     }
