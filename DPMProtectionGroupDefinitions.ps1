@@ -425,6 +425,12 @@
         DPMServerName = "inf-scdpmfs01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
+        Name = "inf-dfshq3"
+        ProtectionGroupSchedule= "File_21day_30Min_0800_1500_2300_Online_21Day_0100"
+        OffsetinMinutes = "60"
+        DPMServerName = "inf-scdpmfs02.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
         Name = "DFS-10"
         ProtectionGroupSchedule= "File_21day_30Min_0700_1500_2300_Online_21Day_0800"
         OffsetinMinutes = "60"
