@@ -71,6 +71,12 @@
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
+        Name = "3001GBBO-PC"
+        ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
+        OffsetinMinutes = "5"
+        DPMServerName = "inf-scdpmsql01.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
         Name = "1040FMBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
         OffsetinMinutes = "5"

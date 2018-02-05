@@ -8,6 +8,15 @@
         OnlineRetentionRangeInDays = "21"
     },
     [PSCustomObject][Ordered] @{
+        Name = "Stores-ST-21Day-120Min-10pm_Online-21Day-11pm"
+        RetentionRangeInDays = "21"
+        SynchronizationFrequencyinMinutes = "120"
+        TimesofDay = "22:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+        OnlineTOD = "23:00"
+        OnlineRetentionRangeInDays = "21"
+    },
+    [PSCustomObject][Ordered] @{
         Name = "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
         RetentionRangeInDays = "21"
         SynchronizationFrequencyinMinutes = "120"
