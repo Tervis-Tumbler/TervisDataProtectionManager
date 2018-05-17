@@ -25,97 +25,97 @@
     [PSCustomObject][Ordered] @{
         Name = "1060KWBO-PC3"
         ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
-        OffsetinMinutes = "5"
+        OffsetinMinutes = "10"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3029PFBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
-        OffsetinMinutes = "5"
+        OffsetinMinutes = "10"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3041ORBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
-        OffsetinMinutes = "5"
+        OffsetinMinutes = "10"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3007FMBO4-PC"
         ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
-        OffsetinMinutes = "5"
+        OffsetinMinutes = "10"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "2010MBBO3-PC"
         ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
-        OffsetinMinutes = "5"
+        OffsetinMinutes = "10"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3015MABO-PC"
         ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
-        OffsetinMinutes = "5"
+        OffsetinMinutes = "15"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3026ANBO3-PC"
         ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
-        OffsetinMinutes = "5"
+        OffsetinMinutes = "15"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3001GBBO2-PC"
         ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
-        OffsetinMinutes = "5"
+        OffsetinMinutes = "15"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3001GBBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
-        OffsetinMinutes = "5"
+        OffsetinMinutes = "15"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "1040FMBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
-        OffsetinMinutes = "5"
+        OffsetinMinutes = "15"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "1030VGBO1-PC"
         ProtectionGroupSchedule= "Stores-ST-21Day-60Min-10pm_Online-21Day-11pm"
-        OffsetinMinutes = "5"
+        OffsetinMinutes = "20"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3045COBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "20"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3036VBBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "20"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3020SDBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "20"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3048INBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "20"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3034DNBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "20"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
@@ -157,43 +157,43 @@
     [PSCustomObject][Ordered] @{
         Name = "3046CNBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "35"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3042NOBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "35"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3004CGBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "35"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3024NSBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "35"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3022MMBO-PC2"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "35"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3044FWBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "35"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3008OBBO2-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "35"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
@@ -205,49 +205,49 @@
     [PSCustomObject][Ordered] @{
         Name = "3023MYBO1-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "40"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3033NPBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "40"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3035SABO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "40"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3050KCBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "40"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3040SABO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "40"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3025AUBO3-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "40"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3032NHBO-PCNEW"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "40"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
         Name = "3030JVBO-PC"
         ProtectionGroupSchedule= "Stores-ST-21day-120Min-12pm_Online-21Day-1am"
-        OffsetinMinutes = "30"
+        OffsetinMinutes = "45"
         DPMServerName = "inf-scdpmsql01.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
