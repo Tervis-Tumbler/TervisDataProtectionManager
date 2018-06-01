@@ -782,3 +782,28 @@ function Invoke-ConfigureDPMServerProtectionGroupFromDefinitions {
 
     Disconnect-DPMServer
 }
+
+function Remove-TervisDPMDatasource {
+    param(
+        [Parameter(Mandatory)]$ProductionServerName
+    )
+    $ProductionServerDefinition = Get-DPMProductionServerDefinition -Name $ProductionServerName
+    $DPMProtectionGroupSchedulePolicyName = $ProductionServerDefinition.ProtectionGroupSchedule
+    $DPMServerName = $ProductionServerDefinition.DPMServerName
+
+    Connect-DPMServer $DPMServerName
+
+    $Protectiongroups = Get-DPMProtectionGroup
+    $ProductionServer = Get-ProductionServer | where ServerName -eq $ProductionServerName
+    $Datasources = Get-DPMDatasource -ProductionServer $ProductionServer
+    $Datasources | %{
+        if ($_.Protected){
+            $ProtectionGroup = $Protectiongroups | where Name -eq $_.ProtectionGroupName
+            $ModifiableProtectionGroup = Get-ModifiableProtectionGroup $Protectiongroup
+            Remove-DPMChildDatasource -ProtectionGroup $ModifiableProtectiongroup -ChildDatasource $_ -KeepDiskData -KeepOnlineData
+        }
+    }
+
+    Disconnect-DPMServer
+    
+}
