@@ -264,7 +264,7 @@ function Invoke-AttachDPMProductionServer {
     param(
         [parameter(Mandatory)]$Name,
         [parameter(Mandatory)]$DPMServerName,
-        $Credential = (Get-PasswordstateCredential -PasswordID 4037)
+        $Credential = (Get-PasswordstatePassword -AsCredential -ID 4037)
     )
     $AttachProductionServerScriptPath = "C:\Program Files\Microsoft System Center 2016\DPM\DPM\bin\Attach-ProductionServer.ps1"
     
