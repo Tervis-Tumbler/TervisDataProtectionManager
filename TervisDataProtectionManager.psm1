@@ -807,3 +807,125 @@ function Remove-TervisDPMDatasource {
     Disconnect-DPMServer
     
 }
+
+function Invoke-DPMHealthChecks{
+    
+$DPMServername = "inf-scdpmora02"
+$ComputerName = "inf-orabackups"
+$OldestRecoveryPointTimeAllowed = (get-date).AddHours(-48)
+
+$ProductionServerDefinition = Get-DPMProductionServerDefinition -Name $ComputerName
+$DPMProductionServerSchedule = Get-DPMProtectionGroupSchedulePolicyDefinition -DPMProtectiongroupSchedulePolicy $ProductionServerDefinition.ProtectionGroupSchedule
+
+$LatestRecoveryPoint = Get-DPMRecoveryPoint -Datasource $DPMDataSource | Sort-Object BackupTime -Descending | Select-Object -first 1
+$LatestOnlineRecoveryPoint = Get-DPMRecoveryPoint -Datasource $DPMDataSource -Online | Sort-Object BackupTime -Descending | Select-Object -first 1
+
+$DiskScheduleTimes = New-Object System.Collections.ArrayList
+$OnlineScheduleTimes = New-Object System.Collections.ArrayList
+foreach($RecoveryPointTime in $DPMProductionServerSchedule.TimesofDay){
+    $RecoveryPointScheduleTimeStamp = [datetime]::ParseExact($RecoveryPointTime,"HH:mm",$null)
+    if ($RecoveryPointScheduleTimeStamp -gt (get-date)){
+        $DiskScheduleTimes.Add($RecoveryPointScheduleTimeStamp.AddHours(-24)) | Out-Null
+    }
+    else {
+        $DiskScheduleTimes.Add($RecoveryPointScheduleTimeStamp) | Out-Null
+    }
+
+}
+$OnlineRecoveryPointScheduleTimeStamp = [datetime]::ParseExact($DPMProductionServerSchedule.OnlineTOD,"HH:mm",$null)
+if ($OnlineRecoveryPointScheduleTimeStamp -gt (get-date)){
+    $OnlineScheduleTimes.Add($OnlineRecoveryPointScheduleTimeStamp.AddHours(-24)) | Out-Null
+}
+else {
+    $OnlineScheduleTimes.Add($OnlineRecoveryPointScheduleTimeStamp) | Out-Null
+}
+$LastDiskRecoveryPointRunTime = $DiskScheduleTimes | Sort-Object -Descending | select -first 1
+$LastOnlineRecoveryPointRunTime = $OnlineScheduleTimes | Sort-Object -Descending | select -first 1
+if ($LatestRecoveryPoint.BackupTime -lt $LastDiskRecoveryPointRunTime) {
+    $LatestRecoveryPoint
+}
+if ($LatestOnlineRecoveryPoint.BackupTime -lt $LastOnlineRecoveryPointRunTime) {
+    $LatestOnlineRecoveryPoint
+}
+
+
+}
+
+function Get-DPMRecoveryPointHealthFromSchedules {
+    $DPMServername = "inf-scdpmsql01"
+    Write-Output "Getting Datasources"    
+    $DPMDatasources = Get-DPMDatasource -DPMServerName $DPMServername # | Where-Object ProtectionGroupName -eq "SQL-AllOthers" #| Select-Object DPMServerName,Computer,Name,protectiongroupname
+    write-output "getting protectiongroups"
+    $DPMProtectionGroups = Get-DPMProtectionGroup -DPMServerName $DPMServername # | Where-Object name -eq "SQL-AllOthers"
+    
+    ForEach ($ProtectionGroup in $DPMProtectionGroups){
+    #   $ProtectionGroup = $DPMProtectionGroups
+        $DatasourcesWithinProtectionGroup = $DPMDatasources | where ProtectionGroupName -eq $ProtectionGroup.Name
+        $ProtectionGroupDiskSchedule = Get-DPMPolicySchedule -ProtectionGroup $ProtectionGroup -ShortTerm
+        $ProtectionGroupOnlineSchedule = Get-DPMPolicySchedule -ProtectionGroup $ProtectionGroup -LongTerm Online
+      
+        $DiskScheduleTimes = New-Object System.Collections.ArrayList
+        $OnlineScheduleTimes = New-Object System.Collections.ArrayList
+    
+        $DiskTimesOfDay = $ProtectionGroupDiskSchedule.TimesofDay.ToShortTimeString()
+        foreach($DiskRecoveryPointTime in $DiskTimesOfDay){
+            $Timestamp = [datetime]("{0:HH:mm}" -f [datetime]$DiskRecoveryPointTime)
+            if ($TimeStamp -gt (get-date)){
+                $DiskScheduleTimes.Add($TimeStamp.AddDays(-1)) | Out-Null
+            }
+            else {
+                $DiskScheduleTimes.Add($TimeStamp) | Out-Null
+            }
+        
+        }
+    
+        $OnlineTimesOfDay = $ProtectionGroupOnlineSchedule.TimesofDay.ToShortTimeString()
+        foreach($OnlineRecoveryPointTime in $OnlineTimesOfDay){
+                $Timestamp = [datetime]("{0:HH:mm}" -f [datetime]$OnlineRecoveryPointTime)
+                if ($TimeStamp -gt (get-date)){
+                    $OnlineScheduleTimes.Add($TimeStamp.AddDays(-1)) | Out-Null
+                }
+                else {
+                    $OnlineScheduleTimes.Add($TimeStamp) | Out-Null
+                }
+            
+        }
+    
+        $OldestDiskRecoveryPointPermitted = ($DiskScheduleTimes | Sort-Object -Descending | Select-Object -first 1).addminutes(-15)
+        $OldestOnlineRecoveryPointPermitted = $diskscheduletimes | where {$_ -lt ($OnlineScheduleTimes | Sort-Object -Descending | select -first 1)}
+        
+        if($ProtectionGroupDiskSchedule.JobType -eq "FullReplicationForApplication"){
+            $IncrementalFrequency = $ProtectionGroupDiskSchedule.Frequency
+            $OldestIncrementalRecoveryPointPermitted = (get-date).AddMinutes(-$IncrementalFrequency * 2)
+        }
+            
+        foreach ($Datasource in $DatasourcesWithinProtectionGroup){
+     #      $Datasource = $DatasourcesWithinProtectionGroup | where name -eq ims
+            $LatestOnlineRecoveryPoint = Get-DPMRecoveryPoint -Datasource $($DataSource) -Online -OnlyActive | Sort-Object BackupTime -Descending | Select-Object -first 1
+            
+            if ($OldestIncrementalRecoveryPointPermitted){
+                if($Datasource.LatestRecoveryPoint -lt $OldestIncrementalRecoveryPointPermitted){
+                    $Datasource | Add-Member -MemberType NoteProperty -Name RecoveryPointType -Value "Incremental" -Force
+                    $Datasource | Add-Member -MemberType NoteProperty -Name LatestRecoveryPointTime -Value $Datasource.LatestRecoveryPoint -force
+                    $Datasource | Add-Member -MemberType NoteProperty -Name OldestRecoveryPointPermitted -Value $OldestIncrementalRecoveryPointPermitted -force
+                    $Datasource | select DPMServerName,Computer,Name,protectiongroupname,LatestRecoveryPointTime,OldestRecoveryPointPermitted,RecoveryPointType | ft -AutoSize
+                }
+            }
+            else {
+                if ($Datasource.LatestRecoveryPoint -lt $OldestDiskRecoveryPointPermitted) {
+                    $Datasource | Add-Member -MemberType NoteProperty -Name RecoveryPointType -Value "Disk" -Force
+                    $Datasource | Add-Member -MemberType NoteProperty -Name LatestRecoveryPointTime -Value $Datasource.LatestRecoveryPoint -force
+                    $Datasource | Add-Member -MemberType NoteProperty -Name OldestRecoveryPointPermitted -Value $OldestDiskRecoveryPointPermitted -force
+                    $Datasource | select DPMServerName,Computer,Name,protectiongroupname,LatestRecoveryPointTime,OldestRecoveryPointPermitted,RecoveryPointType | ft -AutoSize
+                }
+            }
+            if ($LatestOnlineRecoveryPoint.BackupTime -lt $OldestOnlineRecoveryPointPermitted) {
+                $Datasource | Add-Member -MemberType NoteProperty -Name RecoveryPointType -Value Online -Force
+                $Datasource | Add-Member -MemberType NoteProperty -Name OldestRecoveryPointPermitted -Value $OldestOnlineRecoveryPointPermitted -force
+                $Datasource | Add-Member -MemberType NoteProperty -Name LatestRecoveryPointTime -Value $($LatestOnlineRecoveryPoint.BackupTime) -force
+                $Datasource | select DPMServerName,Computer,Name,protectiongroupname,LatestRecoveryPointTime,OldestRecoveryPointPermitted,RecoveryPointType | ft -AutoSize
+            } #   }    
+        
+        }
+    }
+}
