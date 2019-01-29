@@ -737,13 +737,20 @@ function Install-OraHollengrenMaintenanceScripts{
 function Invoke-ConfigureDPMServerProtectionGroupFromDefinitions {
     param(
 #        [Parameter(Mandatory)]$DPMServerName,
-        [Parameter(Mandatory)]$ProductionServerName
+        [Parameter(Mandatory)]$ProductionServerName,
+        $DriveLetter
     )
     $ProductionServerDefinition = Get-DPMProductionServerDefinition -Name $ProductionServerName
     $DPMProtectionGroupSchedulePolicyName = $ProductionServerDefinition.ProtectionGroupSchedule
     $DPMServerName = $ProductionServerDefinition.DPMServerName
     $CimSession = New-CimSession -ComputerName $ProductionServerName
-    $ProtectableProductionComputerVolumes = Get-Volume -CimSession $CimSession | where {($_.DriveType -eq "Fixed") -and ($_.FilesystemLabel -ne "Recovery") -and ($_.DriveLetter -ne "c") -and ($_.FileSystemLabel -ne "System Reserved")}
+    $SystemVolumes = Get-Volume -CimSession $CimSession | where {($_.DriveType -eq "Fixed") -and ($_.FilesystemLabel -ne "Recovery") -and ($_.DriveLetter -ne "c") -and ($_.DriveLetter -notin $ProductionServerDefinition.ExcludedDatasources) -and ($_.FileSystemLabel -ne "System Reserved")}
+    if($DriveLetter){
+        $ProtectableProductionComputerVolumes = $SystemVolumes | Where-Object DriveLetter -eq $DriveLetter
+    }
+    else{
+        $ProtectableProductionComputerVolumes = $SystemVolumes
+    }
     Remove-CimSession $CimSession
     if($ProductionServerDefinition.EnableCompression){
         $EnableCompression = $true

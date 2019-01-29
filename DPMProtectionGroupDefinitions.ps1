@@ -420,7 +420,8 @@
         Name = "inf-orabackups"
         ProtectionGroupSchedule = "ST_21day_60Min_0800_1200_1800_Online_21Day_1000" 
         OffsetinMinutes = "0"
-        DPMServerName = "inf-scdpmora01.tervis.prv"
+        DPMServerName = "inf-scdpmora02.tervis.prv"
+        ExcludedDatasources = "D","O"
     },
     [PSCustomObject][Ordered] @{
         Name = "p-octopusdeploy"
