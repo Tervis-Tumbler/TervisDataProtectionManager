@@ -332,6 +332,12 @@
         DPMServerName = "inf-scdpmfs03.tervis.prv"
     },
     [PSCustomObject][Ordered] @{
+        Name = "inf-exchange01"
+        ProtectionGroupSchedule= "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
+        OffsetinMinutes = "0"
+        DPMServerName = "inf-scdpmfs03.tervis.prv"
+    },
+    [PSCustomObject][Ordered] @{
         Name = "inf-WorldShip"
         ProtectionGroupSchedule= "ST_21day_15Min_0700_1500_2300_Online_21Day_0900"
         OffsetinMinutes = "0"
