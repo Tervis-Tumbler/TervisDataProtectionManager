@@ -1,4 +1,4 @@
-﻿$ModulePath = (Get-Module -ListAvailable TervisDataProtectionManager).ModuleBase
+$ModulePath = (Get-Module -ListAvailable TervisDataProtectionManager).ModuleBase
 . $ModulePath\DPMProtectionGroupDefinitions.ps1
 . $ModulePath\DPMProtectionGroupSchedulePolicyDefinitions.ps1
 
@@ -769,7 +769,7 @@ function Invoke-ConfigureDPMServerProtectionGroupFromDefinitions {
     $SQLDatasources = $Datasources | where {($_.ObjectType -match "SQL") -and ($DefaultDBExceptions -notcontains $_.Name)}
     foreach ($ProtectableVolume in $ProtectableProductionComputerVolumes) {
         $ProtectionGroupName = "$ProductionServerName - $($ProtectableVolume.FileSystemLabel)"
-        $DatasourceToProtect = $Datasources | where name -like "$($ProtectableVolume.DriveLetter)*"
+        $DatasourceToProtect = $Datasources | where {($_.name -like "$($ProtectableVolume.DriveLetter)*") -and ($_.ObjectType -eq "Volume")}
         Invoke-ProtectDPMDataSource -ProductionServerName $ProductionServerName -DatasourceName $DatasourceToProtect.Name -ProtectionGroupName $ProtectionGroupName -DPMProtectionGroupSchedulePolicyName $DPMProtectionGroupSchedulePolicyName -Online -EnableCompression:$EnableCompression
     }
     if($SQLDatasources){
