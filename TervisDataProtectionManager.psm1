@@ -547,7 +547,7 @@ function Set-TervisDPMProtectionGroupSchedule {
     else {
         Set-PolicyObjective -ProtectionGroup $ModifiableProtectionGroup -RetentionRangeInDays $PolicyScheduletoSet.RetentionRangeInDays -SynchronizationFrequency $PolicyScheduletoSet.SynchronizationFrequencyinMinutes
     }
-    if($ShadowCopyPolicySchedule = Get-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -ShortTerm | where { $_.JobType -eq “ShadowCopy” }){
+    if($ShadowCopyPolicySchedule = Get-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -ShortTerm | where { $_.JobType -eq "ShadowCopy" }){
         Set-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -Schedule $ShadowCopyPolicySchedule -DaysOfWeek $($PolicyScheduletoSet.DaysOfWeek) -TimesOfDay $PolicyScheduleTimesofDay
     }
     if($FullReplicationforApplicationPolicySchedule = Get-PolicySchedule -ProtectionGroup $ModifiableProtectionGroup -ShortTerm | where { $_.JobType-eq “FullReplicationForApplication” }){
