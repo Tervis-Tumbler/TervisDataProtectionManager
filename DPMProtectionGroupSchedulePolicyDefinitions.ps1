@@ -145,5 +145,22 @@
         DaysOfWeek = "su","mo","tu","we","th","fr","sa"
         OnlineTOD = "10:00"
         OnlineRetentionRangeInDays = "21"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "ST_10day_60Min_0800_1200_1800_Online_10Day_1000"
+        RetentionRangeInDays = "10"
+        SynchronizationFrequencyinMinutes = "30"
+        TimesofDay = "07:00","15:00","23:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+        OnlineTOD = "09:00"
+        OnlineRetentionRangeInDays = "10"
+    },
+    [PSCustomObject][Ordered] @{
+        Name = "ST_10day_30Min_0800_1200_1800_Online_10Day_1000"
+        RetentionRangeInDays = "10"
+        SynchronizationFrequencyinMinutes = "30"
+        TimesofDay = "07:00","15:00","23:00"
+        DaysOfWeek = "su","mo","tu","we","th","fr","sa"
+        OnlineTOD = "09:00"
+        OnlineRetentionRangeInDays = "10"
     }
-

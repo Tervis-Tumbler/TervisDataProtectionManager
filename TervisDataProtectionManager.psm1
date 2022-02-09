@@ -1,4 +1,4 @@
-$ModulePath = (Get-Module -ListAvailable TervisDataProtectionManager).ModuleBase
+﻿$ModulePath = (Get-Module -ListAvailable TervisDataProtectionManager).ModuleBase
 . $ModulePath\DPMProtectionGroupDefinitions.ps1
 . $ModulePath\DPMProtectionGroupSchedulePolicyDefinitions.ps1
 
@@ -621,7 +621,7 @@ function Invoke-CreateNewDPMServerRecoveryPoints {
    param(
         [Parameter(Mandatory)]$DPMServerName,
         $ProtectiongroupName,
-        [Parameter(Mandatory)][ValidateSet(“ExpressFull”,”Online”)]$BackupType
+        [Parameter(Mandatory)][ValidateSet("ExpressFull","Online","Incremental")]$BackupType
     )
     Connect-DPMServer -DPMServerName $DPMServerName
     if ($ProtectiongroupName) {
@@ -636,6 +636,11 @@ function Invoke-CreateNewDPMServerRecoveryPoints {
         if ($BackupType -eq "ExpressFull"){
             foreach ($PGDataSource in $PGDataSources){
                 New-DPMRecoveryPoint -Datasource $PGDataSource -Disk -BackupType ExpressFull
+            }
+        }
+        if ($BackupType -eq "Incremental"){
+            foreach ($PGDataSource in $PGDataSources){
+                New-DPMRecoveryPoint -Datasource $PGDataSource -Disk -BackupType Incremental
             }
         }
         elseif ($BackupType -eq "Online"){
@@ -859,7 +864,7 @@ if ($LatestOnlineRecoveryPoint.BackupTime -lt $LastOnlineRecoveryPointRunTime) {
 }
 
 function Get-DPMRecoveryPointHealthFromSchedules {
-    $DPMServername = "inf-scdpmsql01"
+    $DPMServername = "inf-scdpmfs01"
     Write-Output "Getting Datasources"    
     $DPMDatasources = Get-DPMDatasource -DPMServerName $DPMServername # | Where-Object ProtectionGroupName -eq "SQL-AllOthers" #| Select-Object DPMServerName,Computer,Name,protectiongroupname
     write-output "getting protectiongroups"
